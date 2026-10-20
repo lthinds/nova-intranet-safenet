@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import {
   AppWindow,
   ArrowRight,
@@ -23,6 +23,10 @@ import {
   ListFilter,
   LockKeyhole,
   LogOut,
+  Megaphone,
+  Moon,
+  GraduationCap,
+  Sun,
   Mail,
   Menu,
   MonitorCheck,
@@ -62,8 +66,24 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import {
+  CreateNoticeDialog,
+  HeroCarousel,
+  MandatoryNoticeOverlay,
+  NoticeDetailDialog,
+  NoticesView,
+  SectorBadge,
+  TrainingsView,
+  computeExpiration,
+  isActive,
+  makeSeedAnnouncements,
+  makeSeedCourses,
+  safenetMarkUrl,
+  sortByDateDesc,
+  type Announcement,
+} from "@/components/portal-communications";
 
-type View = "inicio" | "aplicacoes" | "colaboradores" | "acessos" | "gestao" | "login";
+type View = "inicio" | "avisos" | "treinamentos" | "aplicacoes" | "colaboradores" | "acessos" | "gestao" | "login";
 type Integration = "SSO integrado" | "Link externo";
 
 type AppItem = {
@@ -106,7 +126,9 @@ const people = [
 
 const navItems: Array<{ id: View; label: string; icon: ComponentType<{ className?: string }> }> = [
   { id: "inicio", label: "Visão geral", icon: LayoutDashboard },
+  { id: "avisos", label: "Avisos", icon: Megaphone },
   { id: "aplicacoes", label: "Aplicações", icon: AppWindow },
+  { id: "treinamentos", label: "Treinamentos", icon: GraduationCap },
   { id: "colaboradores", label: "Colaboradores", icon: Users },
   { id: "acessos", label: "Acessos", icon: ShieldEllipsis },
   { id: "gestao", label: "Gestão de aplicações", icon: Settings },
@@ -122,6 +144,28 @@ export function PortalPrototype() {
   const [modal, setModal] = useState<"add" | "approve" | "block" | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [now] = useState(() => new Date());
+  const [announcements, setAnnouncements] = useState<Announcement[]>(() => makeSeedAnnouncements(new Date()));
+  const [courses] = useState(() => makeSeedCourses(new Date()));
+  const [acknowledged, setAcknowledged] = useState<string[]>([]);
+  const [showMandatory, setShowMandatory] = useState(true);
+  const [createNotice, setCreateNotice] = useState(false);
+  const [openNotice, setOpenNotice] = useState<Announcement | null>(null);
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    setDark(window.localStorage.getItem("safenet-theme") === "dark");
+  }, []);
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+  }, [dark]);
+  function toggleTheme() {
+    const next = !dark;
+    setDark(next);
+    window.localStorage.setItem("safenet-theme", next ? "dark" : "light");
+  }
+
+  const pendingMandatory = sortByDateDesc(announcements).filter((item) => item.mandatory && isActive(item, now) && !acknowledged.includes(item.id));
   const [access, setAccess] = useState<Record<string, boolean>>({
     "Ponto — Pontotel": true,
     Webmail: true,
@@ -152,11 +196,13 @@ export function PortalPrototype() {
   }
 
   if (view === "login") {
-    return <LoginScreen onEnter={() => navigate("inicio")} />;
+    return <LoginScreen onEnter={() => { setShowMandatory(true); navigate("inicio"); }} />;
   }
 
   const titles: Record<Exclude<View, "login">, { title: string; description: string }> = {
     inicio: { title: "Bom dia, Marina", description: "Aqui está o que você precisa para começar o dia." },
+    avisos: { title: "Avisos e comunicados", description: "Todos os comunicados da empresa, organizados por data." },
+    treinamentos: { title: "Treinamentos", description: "Cursos e capacitações disponíveis para as equipes." },
     aplicacoes: { title: "Aplicações", description: "Acesse as ferramentas disponíveis para o seu perfil." },
     colaboradores: { title: "Colaboradores", description: "Aprove cadastros e acompanhe a situação das contas." },
     acessos: { title: "Gestão de acessos", description: "Defina quais ferramentas cada colaborador visualiza no portal." },
@@ -170,8 +216,8 @@ export function PortalPrototype() {
       <aside className={cn("fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform lg:translate-x-0", mobileOpen ? "translate-x-0" : "-translate-x-full")}>
         <div className="flex h-20 items-center justify-between border-b border-sidebar-border px-6">
           <button className="flex items-center gap-3 text-left" onClick={() => navigate("inicio")} aria-label="Ir para a visão geral">
-            <span className="grid size-10 place-items-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground"><ShieldCheck className="size-5" /></span>
-            <span><strong className="block text-[15px] font-bold">Intranet Safenet</strong><small className="block text-[10px] font-semibold uppercase text-sidebar-foreground/55">Portal corporativo</small></span>
+            <span className="grid size-10 place-items-center rounded-md bg-card p-1.5"><img src={safenetMarkUrl} alt="Safenet" className="size-full object-contain" /></span>
+            <span><strong className="font-display block text-[15px] font-bold tracking-[0.25em]">SAFENET</strong><small className="block text-[10px] font-semibold uppercase text-sidebar-foreground/55">Portal corporativo</small></span>
           </button>
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(false)} aria-label="Fechar menu"><X /></Button>
         </div>
@@ -200,7 +246,8 @@ export function PortalPrototype() {
           <div className="sm:hidden" />
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="hidden h-8 gap-2 border-success/20 bg-success-soft text-success sm:flex"><span className="size-1.5 rounded-full bg-success" /> Rede interna</Badge>
-            <Button variant="ghost" size="icon" aria-label="Notificações" className="relative"><Bell /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-warning" /></Button>
+            <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label={dark ? "Usar tema claro" : "Usar tema escuro"}>{dark ? <Sun /> : <Moon />}</Button>
+            <Button variant="ghost" size="icon" aria-label="Avisos" onClick={() => navigate("avisos")} className="relative"><Bell /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-warning" /></Button>
             <span className="hidden h-6 w-px bg-border sm:block" />
             <button onClick={() => navigate("login")} className="hidden items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-muted md:flex"><span className="grid size-8 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">MA</span><span><strong className="block text-xs">Marina Alves</strong><small className="block text-[10px] text-muted-foreground">Coordenadora</small></span><ChevronDown className="size-3 text-muted-foreground" /></button>
           </div>
@@ -208,11 +255,14 @@ export function PortalPrototype() {
 
         <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
           <div className="mb-7 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
-            <div className="min-w-0"><p className="mb-2 text-[10px] font-bold uppercase text-primary">Central de aplicações</p><h1 className="text-2xl font-bold md:text-[30px]">{currentTitle.title}</h1><p className="mt-1 text-sm text-muted-foreground">{currentTitle.description}</p></div>
+            <div className="min-w-0"><p className="mb-2 text-[10px] font-bold uppercase text-primary">Central de aplicações</p><h1 className="font-display text-2xl font-bold md:text-[30px]">{currentTitle.title}</h1><p className="mt-1 text-sm text-muted-foreground">{currentTitle.description}</p></div>
             {view === "gestao" && <Button onClick={() => setModal("add")}><Plus /> Nova aplicação</Button>}
+            {view === "avisos" && <Button onClick={() => setCreateNotice(true)}><Plus /> Novo aviso</Button>}
           </div>
 
-          {view === "inicio" && <HomeView navigate={navigate} onSelect={setSelectedApp} />}
+          {view === "inicio" && <HomeView navigate={navigate} onSelect={setSelectedApp} latest={sortByDateDesc(announcements).filter((item) => isActive(item, now)).slice(0, 2)} onOpenNotice={setOpenNotice} />}
+          {view === "avisos" && <NoticesView items={announcements} now={now} acknowledged={acknowledged} onCreate={() => setCreateNotice(true)} onOpen={setOpenNotice} />}
+          {view === "treinamentos" && <TrainingsView courses={courses} now={now} />}
           {view === "aplicacoes" && <ApplicationsView apps={filteredApps} query={query} setQuery={setQuery} category={category} setCategory={setCategory} onSelect={setSelectedApp} />}
           {view === "colaboradores" && <PeopleView setModal={setModal} showNotice={showNotice} />}
           {view === "acessos" && <AccessView access={access} setAccess={setAccess} showNotice={showNotice} />}
@@ -222,28 +272,31 @@ export function PortalPrototype() {
 
       <ApplicationDialog app={selectedApp} onClose={() => setSelectedApp(null)} showNotice={showNotice} />
       <ActionDialog modal={modal} setModal={setModal} showNotice={showNotice} />
+      <NoticeDetailDialog item={openNotice} onClose={() => setOpenNotice(null)} />
+      <CreateNoticeDialog open={createNotice} onClose={() => setCreateNotice(false)} onCreate={(data, expiration, customDate) => {
+        const published = new Date();
+        setAnnouncements((list) => [{ ...data, id: `n${published.getTime()}`, publishedAt: published.toISOString(), expiresAt: computeExpiration(published, expiration, customDate) }, ...list]);
+        setCreateNotice(false);
+        showNotice(data.mandatory ? "Aviso publicado. Ele aparecerá em tela cheia no próximo login." : "Aviso publicado na aba Avisos.");
+      }} />
+      {showMandatory && <MandatoryNoticeOverlay items={pendingMandatory} onAcknowledge={(id) => setAcknowledged((list) => [...list, id])} />}
 
       {notice && <div role="status" className="fixed bottom-5 right-5 z-[70] flex max-w-sm items-start gap-3 rounded-md border border-success/20 bg-foreground px-4 py-3 text-background shadow-xl"><span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-success text-success-foreground"><Check className="size-3" /></span><p className="text-xs leading-5">{notice}</p></div>}
     </div>
   );
 }
 
-function HomeView({ navigate, onSelect }: { navigate: (view: View) => void; onSelect: (app: AppItem) => void }) {
+function HomeView({ navigate, onSelect, latest, onOpenNotice }: { navigate: (view: View) => void; onSelect: (app: AppItem) => void; latest: Announcement[]; onOpenNotice: (item: Announcement) => void }) {
   const recent = apps.filter((app) => app.recent);
   return <div className="space-y-7">
-    <section className="overflow-hidden rounded-lg bg-hero text-hero-foreground shadow-sm">
-      <div className="grid min-h-[250px] gap-8 p-6 md:grid-cols-[minmax(0,1fr)_340px] md:p-9">
-        <div className="self-center"><Badge className="mb-5 bg-hero-accent text-hero-accent-foreground hover:bg-hero-accent">Seu acesso hoje</Badge><h2 className="max-w-xl text-2xl font-bold leading-tight md:text-4xl">Tudo o que você precisa, em um só lugar.</h2><p className="mt-3 max-w-xl text-sm leading-6 text-hero-foreground/70">Acesse sistemas, painéis e recursos corporativos com rapidez e segurança.</p><Button onClick={() => navigate("aplicacoes")} className="mt-6 bg-hero-accent text-hero-accent-foreground hover:bg-hero-accent/90">Explorar aplicações <ArrowRight /></Button></div>
-        <div className="hidden place-items-center md:grid" aria-hidden="true"><div className="relative grid size-44 place-items-center"><span className="absolute inset-2 rounded-full border border-hero-accent/20" /><span className="absolute h-28 w-44 rotate-45 rounded-[50%] border border-hero-accent/25" /><span className="absolute h-28 w-44 -rotate-45 rounded-[50%] border border-hero-accent/25" /><span className="grid size-16 place-items-center rounded-full bg-hero-accent/20 shadow-[0_0_50px_var(--hero-accent)]"><ShieldCheck className="size-7 text-hero-accent" /></span></div></div>
-      </div>
-    </section>
+    <HeroCarousel onOpenNotices={() => navigate("avisos")} />
     <section>
       <SectionHeading title="Acessados recentemente" action={<Button variant="ghost" size="sm" onClick={() => navigate("aplicacoes")}>Ver todos <ArrowRight /></Button>} />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{recent.map((app) => <AppCard key={app.name} app={app} onClick={() => onSelect(app)} compact />)}</div>
     </section>
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(290px,.7fr)]">
       <section className="rounded-lg border bg-card p-5 text-card-foreground shadow-sm"><SectionHeading title="Visão do portal" /><div className="grid gap-3 sm:grid-cols-3"><Metric value="17" label="Aplicações cadastradas" icon={AppWindow} /><Metric value="12" label="Liberadas para você" icon={BadgeCheck} /><Metric value="100%" label="Serviços disponíveis" icon={ShieldCheck} /></div></section>
-      <section className="rounded-lg border bg-card p-5 text-card-foreground shadow-sm"><SectionHeading title="Comunicado" /><div className="flex gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-md bg-warning-soft text-warning"><Bell className="size-5" /></span><div><strong className="text-sm">Manutenção programada</strong><p className="mt-1 text-xs leading-5 text-muted-foreground">O Monitoramento ficará em manutenção sábado, das 22h às 23h.</p><button className="mt-2 text-xs font-semibold text-primary">Ver comunicado</button></div></div></section>
+      <section className="rounded-lg border bg-card p-5 text-card-foreground shadow-sm"><SectionHeading title="Avisos recentes" action={<Button variant="ghost" size="sm" onClick={() => navigate("avisos")}>Ver todos <ArrowRight /></Button>} /><div className="space-y-3">{latest.map((item) => <button key={item.id} onClick={() => onOpenNotice(item)} className="block w-full rounded-md border p-3 text-left hover:bg-muted/50"><SectorBadge sector={item.sector} /><strong className="mt-2 block text-sm">{item.title}</strong><p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{item.summary}</p></button>)}</div></section>
     </div>
   </div>;
 }
@@ -328,5 +381,5 @@ function ActionDialog({ modal, setModal, showNotice }: { modal: "add" | "approve
 }
 
 function LoginScreen({ onEnter }: { onEnter: () => void }) {
-  return <main className="grid min-h-screen bg-background lg:grid-cols-[minmax(0,1.15fr)_minmax(440px,.85fr)]"><section className="relative hidden overflow-hidden bg-hero p-12 text-hero-foreground lg:flex lg:flex-col lg:justify-between"><div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-md bg-hero-accent text-hero-accent-foreground"><ShieldCheck className="size-6" /></span><div><strong className="block">Intranet Safenet</strong><span className="text-[10px] uppercase text-hero-foreground/55">Portal corporativo</span></div></div><div className="max-w-xl"><p className="mb-3 text-xs font-bold uppercase text-hero-accent">Acesso centralizado</p><h1 className="text-5xl font-bold leading-tight">Seu trabalho começa em um só lugar.</h1><p className="mt-5 max-w-lg text-sm leading-6 text-hero-foreground/65">Acesse com segurança as ferramentas autorizadas para o seu perfil.</p></div><p className="text-xs text-hero-foreground/45">Ambiente interno · Acesso monitorado</p></section><section className="flex items-center justify-center px-5 py-10"><div className="w-full max-w-sm"><div className="mb-8 lg:hidden"><span className="grid size-11 place-items-center rounded-md bg-primary text-primary-foreground"><ShieldCheck className="size-6" /></span><strong className="mt-3 block">Intranet Safenet</strong></div><Badge variant="outline" className="mb-5 border-primary/20 bg-accent text-primary">Protótipo de apresentação</Badge><h2 className="text-3xl font-bold">Bem-vindo de volta</h2><p className="mt-2 text-sm text-muted-foreground">Use seu e-mail corporativo para acessar o portal.</p><form className="mt-8 space-y-4" onSubmit={(event) => { event.preventDefault(); onEnter(); }}><label className="block text-xs font-medium">E-mail corporativo<Input className="mt-1 h-11" type="email" defaultValue="marina.alves@empresa.com.br" /></label><label className="block text-xs font-medium">Senha<Input className="mt-1 h-11" type="password" defaultValue="demonstracao" /></label><div className="flex items-center justify-between text-xs"><label className="flex items-center gap-2"><Checkbox /> Lembrar de mim</label><button type="button" className="font-semibold text-primary">Esqueci minha senha</button></div><Button type="submit" className="h-11 w-full">Entrar no portal <ArrowRight /></Button></form><div className="mt-6 rounded-md bg-muted p-3 text-center text-[11px] leading-5 text-muted-foreground">Esta tela é apenas visual. Nenhuma credencial é validada ou armazenada.</div></div></section></main>;
+  return <main className="grid min-h-screen bg-background lg:grid-cols-[minmax(0,1.15fr)_minmax(440px,.85fr)]"><section className="relative hidden overflow-hidden bg-hero p-12 before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-brand-gradient text-hero-foreground lg:flex lg:flex-col lg:justify-between"><div className="flex items-center gap-3"><img src={safenetMarkUrl} alt="Safenet" className="size-11" /><div><strong className="font-display block tracking-[0.3em]">SAFENET</strong><span className="text-[10px] uppercase text-hero-foreground/55">Portal corporativo</span></div></div><div className="max-w-xl"><p className="mb-3 text-xs font-bold uppercase text-hero-accent">Acesso centralizado</p><h1 className="text-5xl font-bold leading-tight">Seu trabalho começa em um só lugar.</h1><p className="mt-5 max-w-lg text-sm leading-6 text-hero-foreground/65">Acesse com segurança as ferramentas autorizadas para o seu perfil.</p></div><p className="text-xs text-hero-foreground/45">Ambiente interno · Acesso monitorado</p></section><section className="flex items-center justify-center px-5 py-10"><div className="w-full max-w-sm"><div className="mb-8 lg:hidden"><img src={safenetMarkUrl} alt="Safenet" className="size-11" /><strong className="font-display mt-3 block tracking-[0.3em]">SAFENET</strong></div><Badge variant="outline" className="mb-5 border-primary/20 bg-accent text-primary">Protótipo de apresentação</Badge><h2 className="text-3xl font-bold">Bem-vindo de volta</h2><p className="mt-2 text-sm text-muted-foreground">Use seu e-mail corporativo para acessar o portal.</p><form className="mt-8 space-y-4" onSubmit={(event) => { event.preventDefault(); onEnter(); }}><label className="block text-xs font-medium">E-mail corporativo<Input className="mt-1 h-11" type="email" defaultValue="marina.alves@empresa.com.br" /></label><label className="block text-xs font-medium">Senha<Input className="mt-1 h-11" type="password" defaultValue="demonstracao" /></label><div className="flex items-center justify-between text-xs"><label className="flex items-center gap-2"><Checkbox /> Lembrar de mim</label><button type="button" className="font-semibold text-primary">Esqueci minha senha</button></div><Button type="submit" className="h-11 w-full">Entrar no portal <ArrowRight /></Button></form><div className="mt-6 rounded-md bg-muted p-3 text-center text-[11px] leading-5 text-muted-foreground">Esta tela é apenas visual. Nenhuma credencial é validada ou armazenada.</div></div></section></main>;
 }
