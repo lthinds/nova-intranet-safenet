@@ -257,7 +257,6 @@ export function PortalPrototype() {
           <div className="mb-7 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
             <div className="min-w-0"><p className="mb-2 text-[10px] font-bold uppercase text-primary">Central de aplicações</p><h1 className="font-display text-2xl font-bold md:text-[30px]">{currentTitle.title}</h1><p className="mt-1 text-sm text-muted-foreground">{currentTitle.description}</p></div>
             {view === "gestao" && <Button onClick={() => setModal("add")}><Plus /> Nova aplicação</Button>}
-            {view === "avisos" && <Button onClick={() => setCreateNotice(true)}><Plus /> Novo aviso</Button>}
           </div>
 
           {view === "inicio" && <HomeView navigate={navigate} onSelect={setSelectedApp} latest={sortByDateDesc(announcements).filter((item) => isActive(item, now)).slice(0, 2)} onOpenNotice={setOpenNotice} />}
