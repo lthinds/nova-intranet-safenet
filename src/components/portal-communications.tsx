@@ -100,7 +100,7 @@ export function HeroCarousel({ onOpenNotices }: { onOpenNotices: () => void }) {
     return () => window.clearInterval(timer);
   }, [paused]);
 
-  const post = posts[index];
+  const post = posts[index] ?? posts[0]!;
   const Icon = post.icon;
   const go = (step: number) => setIndex((value) => (value + step + posts.length) % posts.length);
 
