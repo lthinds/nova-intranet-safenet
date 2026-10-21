@@ -225,7 +225,9 @@ export function NoticeDetailDialog({ item, onClose }: { item: Announcement | nul
   return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent className="max-w-2xl"><DialogHeader><div className="flex flex-wrap items-center gap-2"><SectorBadge sector={item.sector} /><span className="text-xs text-muted-foreground">{fmt(item.publishedAt)} · {item.author}</span></div><DialogTitle className="font-display pt-2 text-xl">{item.title}</DialogTitle><DialogDescription className="text-sm font-semibold text-foreground">{item.summary}</DialogDescription></DialogHeader><p className="text-sm leading-7 text-muted-foreground">{item.body}</p><p className="flex items-center gap-2 text-xs text-muted-foreground"><Clock3 className="size-3.5" />Vigência até {fmt(item.expiresAt)}</p><DialogFooter><Button onClick={onClose}>Fechar</Button></DialogFooter></DialogContent></Dialog>;
 }
 
-export function CreateNoticeDialog({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (item: Omit<Announcement, "id" | "publishedAt" | "expiresAt">, expiration: string, customDate?: string) => void }) {
+export type NoticeDraft = Omit<Announcement, "id" | "publishedAt" | "expiresAt">;
+
+export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate }: { open: boolean; editing?: Announcement | null; onClose: () => void; onCreate: (item: NoticeDraft, expiration: string, customDate?: string) => void; onUpdate?: (item: Announcement) => void }) {
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [body, setBody] = useState("");
@@ -233,24 +235,61 @@ export function CreateNoticeDialog({ open, onClose, onCreate }: { open: boolean;
   const [mandatory, setMandatory] = useState(true);
   const [expiration, setExpiration] = useState("7");
   const [customDate, setCustomDate] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setTitle(editing?.title ?? ""); setSummary(editing?.summary ?? ""); setBody(editing?.body ?? "");
+    setSector(editing?.sector ?? "RH"); setMandatory(editing?.mandatory ?? true);
+    setImageUrl(editing?.imageUrl ?? ""); setVideoUrl(editing?.videoUrl ?? "");
+    setExpiration(editing ? "custom" : "7"); setCustomDate(editing ? editing.expiresAt.slice(0, 10) : "");
+  }, [open, editing]);
+
   if (!open) return null;
-  const valid = title.trim() && summary.trim() && (expiration !== "custom" || customDate);
+  const videoInvalid = videoUrl.trim() !== "" && !youtubeId(videoUrl);
+  const valid = title.trim() && summary.trim() && !videoInvalid && (expiration !== "custom" || customDate);
+  const onFile = (file?: File) => { if (!file) return; const r = new FileReader(); r.onload = () => setImageUrl(String(r.result)); r.readAsDataURL(file); };
+  const draft: NoticeDraft = { title, summary, body: body || summary, sector, mandatory, author: sector === "Coordenação" ? "Marina Alves" : sector, imageUrl: imageUrl || undefined, videoUrl: videoUrl.trim() || undefined };
+  const preview = { ...draft, id: "preview", publishedAt: new Date().toISOString(), expiresAt: new Date().toISOString() };
+
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader><DialogTitle>Publicar novo aviso</DialogTitle><DialogDescription>Disponível para Coordenação, RH, DP e Marketing.</DialogDescription></DialogHeader>
-        <div className="space-y-4 py-1">
-          <label className="block text-xs font-medium">Título<Input className="mt-1" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex.: Mudança no horário do plantão" /></label>
-          <label className="block text-xs font-medium">Resumo<Input className="mt-1" value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Uma frase com o mais importante" /></label>
-          <label className="block text-xs font-medium">Texto completo<Textarea className="mt-1" rows={4} value={body} onChange={(e) => setBody(e.target.value)} /></label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-xs font-medium">Setor responsável<Select value={sector} onValueChange={(v) => setSector(v as Sector)}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{publisherSectors.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></label>
-            <label className="block text-xs font-medium">Expira em<Select value={expiration} onValueChange={setExpiration}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1">24 horas</SelectItem><SelectItem value="7">7 dias</SelectItem><SelectItem value="15">15 dias</SelectItem><SelectItem value="30">30 dias</SelectItem><SelectItem value="custom">Escolher data</SelectItem></SelectContent></Select></label>
+      <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
+        <DialogHeader><DialogTitle>{editing ? "Editar aviso" : "Publicar novo aviso"}</DialogTitle><DialogDescription>Disponível para Coordenação, RH, DP e Marketing.</DialogDescription></DialogHeader>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,.9fr)]">
+          <div className="space-y-4">
+            <label className="block text-xs font-medium">Título<Input className="mt-1" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex.: Mudança no horário do plantão" /></label>
+            <label className="block text-xs font-medium">Subtítulo<Input className="mt-1" value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Uma frase com o mais importante" /></label>
+            <label className="block text-xs font-medium">Corpo do aviso<Textarea className="mt-1" rows={6} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Use uma linha em branco para separar parágrafos." /></label>
+            <div className="space-y-2 rounded-md border p-3">
+              <p className="flex items-center gap-2 text-xs font-bold"><ImageIcon className="size-4 text-primary" />Imagem (opcional)</p>
+              <div className="flex gap-2"><Input value={imageUrl.startsWith("data:") ? "Imagem enviada do computador" : imageUrl} readOnly={imageUrl.startsWith("data:")} onChange={(e) => setImageUrl(e.target.value)} placeholder="Cole o endereço de uma imagem" /><Button variant="outline" asChild><label className="cursor-pointer"><Upload />Enviar<input type="file" accept="image/*" className="sr-only" onChange={(e) => onFile(e.target.files?.[0])} /></label></Button>{imageUrl && <Button variant="ghost" size="icon" onClick={() => setImageUrl("")} aria-label="Remover imagem"><X /></Button>}</div>
+            </div>
+            <div className="space-y-2 rounded-md border p-3">
+              <p className="flex items-center gap-2 text-xs font-bold"><Youtube className="size-4 text-brand-orange" />Vídeo do YouTube (opcional)</p>
+              <Input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
+              {videoInvalid && <p className="text-xs text-destructive">Link do YouTube não reconhecido.</p>}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-xs font-medium">Setor responsável<Select value={sector} onValueChange={(v) => setSector(v as Sector)}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{publisherSectors.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></label>
+              <label className="block text-xs font-medium">Expira em<Select value={expiration} onValueChange={setExpiration}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1">24 horas</SelectItem><SelectItem value="7">7 dias</SelectItem><SelectItem value="15">15 dias</SelectItem><SelectItem value="30">30 dias</SelectItem><SelectItem value="custom">Escolher data</SelectItem></SelectContent></Select></label>
+            </div>
+            {expiration === "custom" && <label className="block text-xs font-medium">Data de expiração<Input className="mt-1" type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} /></label>}
+            <label className="flex items-start gap-3 rounded-md border border-brand-orange/25 bg-brand-orange/5 p-3 text-xs leading-5"><Switch checked={mandatory} onCheckedChange={setMandatory} /><span><strong className="block text-sm">Exibir em tela cheia após o login</strong>O colaborador só entra no portal depois de confirmar a leitura.</span></label>
           </div>
-          {expiration === "custom" && <label className="block text-xs font-medium">Data de expiração<Input className="mt-1" type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} /></label>}
-          <label className="flex items-start gap-3 rounded-md border border-brand-orange/25 bg-brand-orange/5 p-3 text-xs leading-5"><Switch checked={mandatory} onCheckedChange={setMandatory} /><span><strong className="block text-sm">Exibir em tela cheia após o login</strong>O colaborador só entra no portal depois de confirmar a leitura.</span></label>
+          <div className="rounded-lg border bg-muted/30 p-4">
+            <p className="mb-3 text-[10px] font-bold uppercase text-muted-foreground">Pré-visualização</p>
+            <SectorBadge sector={sector} />
+            <h3 className="font-display mt-3 text-lg font-bold">{title || "Título do aviso"}</h3>
+            <p className="mt-1 text-sm font-semibold">{summary || "Subtítulo do aviso"}</p>
+            <NoticeBody item={preview} />
+          </div>
         </div>
-        <DialogFooter><Button variant="outline" onClick={onClose}>Cancelar</Button><Button disabled={!valid} onClick={() => { onCreate({ title, summary, body: body || summary, sector, mandatory, author: sector === "Coordenação" ? "Marina Alves" : sector }, expiration, customDate); setTitle(""); setSummary(""); setBody(""); }}>Publicar aviso</Button></DialogFooter>
+        <DialogFooter><Button variant="outline" onClick={onClose}>Cancelar</Button><Button disabled={!valid} onClick={() => {
+          if (editing && onUpdate) onUpdate({ ...editing, ...draft, author: editing.author, expiresAt: computeExpiration(new Date(editing.publishedAt), expiration, customDate) });
+          else onCreate(draft, expiration, customDate);
+        }}>{editing ? "Salvar alterações" : "Publicar aviso"}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   );
