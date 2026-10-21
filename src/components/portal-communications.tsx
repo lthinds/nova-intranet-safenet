@@ -100,7 +100,7 @@ export function HeroCarousel({ onOpenNotices }: { onOpenNotices: () => void }) {
     return () => window.clearInterval(timer);
   }, [paused]);
 
-  const post = posts[index];
+  const post = posts[index] ?? posts[0]!;
   const Icon = post.icon;
   const go = (step: number) => setIndex((value) => (value + step + posts.length) % posts.length);
 
@@ -270,7 +270,7 @@ export function makeSeedCourses(now: Date): TrainingCourse[] {
 
 export function daysUntil(iso: string, now: Date) {
   const today = new Date(now); today.setHours(0, 0, 0, 0);
-  const [y, m, d] = iso.split("-").map(Number);
+  const [y = 0, m = 1, d = 1] = iso.split("-").map(Number);
   return Math.round((new Date(y, m - 1, d).getTime() - today.getTime()) / DAY);
 }
 
