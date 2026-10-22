@@ -116,12 +116,16 @@ const apps: AppItem[] = [
   { name: "Gestor de Recrutamento", description: "Vagas, currículos e candidatos.", category: "RH", integration: "SSO integrado", status: "Disponível", icon: Users },
 ];
 
-const people = [
-  { name: "Marina Alves", email: "marina.alves@empresa.com.br", area: "Monitoramento", role: "Coordenadora", status: "Ativo", initials: "MA" },
-  { name: "Rafael Costa", email: "rafael.costa@empresa.com.br", area: "Operacional", role: "Colaborador", status: "Ativo", initials: "RC" },
-  { name: "Beatriz Lima", email: "beatriz.lima@empresa.com.br", area: "Comercial", role: "Colaboradora", status: "Ativo", initials: "BL" },
-  { name: "Carlos Nunes", email: "carlos.nunes@empresa.com.br", area: "Técnico", role: "Colaborador", status: "Bloqueado", initials: "CN" },
-  { name: "João Pereira", email: "joao.pereira@empresa.com.br", area: "Licitações", role: "Colaborador", status: "Pendente", initials: "JP" },
+const portalRoles = ["Coordenação", "RH", "DP", "Marketing", "Monitoramento", "Operacional", "Frota", "Comercial", "Licitações", "Técnico"];
+
+type Person = { name: string; email: string; area: string; roles: string[]; status: string; initials: string };
+
+const seedPeople: Person[] = [
+  { name: "Marina Alves", email: "marina.alves@empresa.com.br", area: "Monitoramento", roles: ["Coordenação", "Monitoramento"], status: "Ativo", initials: "MA" },
+  { name: "Rafael Costa", email: "rafael.costa@empresa.com.br", area: "Operacional", roles: ["Operacional", "Frota"], status: "Ativo", initials: "RC" },
+  { name: "Beatriz Lima", email: "beatriz.lima@empresa.com.br", area: "Comercial", roles: ["Comercial", "Licitações", "Marketing"], status: "Ativo", initials: "BL" },
+  { name: "Carlos Nunes", email: "carlos.nunes@empresa.com.br", area: "Técnico", roles: ["Técnico"], status: "Bloqueado", initials: "CN" },
+  { name: "João Pereira", email: "joao.pereira@empresa.com.br", area: "Licitações", roles: ["Licitações"], status: "Pendente", initials: "JP" },
 ];
 
 const navItems: Array<{ id: View; label: string; icon: ComponentType<{ className?: string }> }> = [
@@ -151,6 +155,7 @@ export function PortalPrototype() {
   const [showMandatory, setShowMandatory] = useState(true);
   const [createNotice, setCreateNotice] = useState(false);
   const [openNotice, setOpenNotice] = useState<Announcement | null>(null);
+  const [editingNotice, setEditingNotice] = useState<Announcement | null>(null);
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -271,8 +276,8 @@ export function PortalPrototype() {
 
       <ApplicationDialog app={selectedApp} onClose={() => setSelectedApp(null)} showNotice={showNotice} />
       <ActionDialog modal={modal} setModal={setModal} showNotice={showNotice} />
-      <NoticeDetailDialog item={openNotice} onClose={() => setOpenNotice(null)} />
-      <CreateNoticeDialog open={createNotice} onClose={() => setCreateNotice(false)} onCreate={(data, expiration, customDate) => {
+      <NoticeDetailDialog item={openNotice} onClose={() => setOpenNotice(null)} onEdit={(item) => { setOpenNotice(null); setEditingNotice(item); setCreateNotice(true); }} />
+      <CreateNoticeDialog open={createNotice} editing={editingNotice} onClose={() => { setCreateNotice(false); setEditingNotice(null); }} onUpdate={(item) => { setAnnouncements((list) => list.map((a) => (a.id === item.id ? item : a))); setCreateNotice(false); setEditingNotice(null); showNotice("Aviso atualizado."); }} onCreate={(data, expiration, customDate) => {
         const published = new Date();
         setAnnouncements((list) => [{ ...data, id: `n${published.getTime()}`, publishedAt: published.toISOString(), expiresAt: computeExpiration(published, expiration, customDate) }, ...list]);
         setCreateNotice(false);
@@ -313,12 +318,17 @@ function ApplicationsView({ apps: visibleApps, query, setQuery, category, setCat
 }
 
 function PeopleView({ setModal, showNotice }: { setModal: (value: "approve" | "block" | null) => void; showNotice: (message: string) => void }) {
+  const [people, setPeople] = useState<Person[]>(seedPeople);
+  const [editing, setEditing] = useState<Person | null>(null);
+  const [draftRoles, setDraftRoles] = useState<string[]>([]);
+  const toggle = (r: string) => setDraftRoles((list) => (list.includes(r) ? list.filter((x) => x !== r) : [...list, r]));
   return <div className="space-y-5">
+    {editing && <Dialog open onOpenChange={(o) => !o && setEditing(null)}><DialogContent className="max-w-lg"><DialogHeader><DialogTitle>Funções de {editing.name}</DialogTitle><DialogDescription>Um colaborador pode ter várias funções. Ele verá todas as áreas do portal liberadas para qualquer uma delas. As permissões dentro de cada sistema continuam sendo definidas no próprio sistema.</DialogDescription></DialogHeader><div className="grid grid-cols-2 gap-2">{portalRoles.map((r) => <label key={r} className={cn("flex items-center gap-2 rounded-md border p-3 text-sm", draftRoles.includes(r) && "border-primary bg-accent")}><Checkbox checked={draftRoles.includes(r)} onCheckedChange={() => toggle(r)} />{r}</label>)}</div><DialogFooter><Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button><Button disabled={!draftRoles.length} onClick={() => { setPeople((list) => list.map((p) => (p.email === editing.email ? { ...p, roles: draftRoles } : p))); showNotice(`Funções de ${editing.name} atualizadas.`); setEditing(null); }}>Salvar funções</Button></DialogFooter></DialogContent></Dialog>}
     <section className="rounded-lg border border-warning/25 bg-warning-soft p-4"><div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-md bg-warning text-warning-foreground"><UserCheck className="size-5" /></span><div className="min-w-0"><strong className="text-sm">1 cadastro aguarda aprovação</strong><p className="mt-0.5 text-xs text-muted-foreground">Revise os dados antes de liberar o acesso ao portal.</p></div><Button size="sm" onClick={() => setModal("approve")}>Revisar</Button></div></section>
     <div className="grid gap-3 sm:grid-cols-3"><Metric value="48" label="Colaboradores ativos" icon={Users} /><Metric value="1" label="Aguardando aprovação" icon={Clock3} /><Metric value="2" label="Contas bloqueadas" icon={LockKeyhole} /></div>
     <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
       <div className="grid gap-3 border-b p-4 md:grid-cols-[minmax(0,1fr)_180px_auto]"><label className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input placeholder="Buscar nome ou e-mail..." className="pl-9" /></label><Select defaultValue="todos"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todos os status</SelectItem><SelectItem value="ativo">Ativos</SelectItem><SelectItem value="pendente">Pendentes</SelectItem><SelectItem value="bloqueado">Bloqueados</SelectItem></SelectContent></Select><Button variant="outline"><SlidersHorizontal /> Filtrar</Button></div>
-      <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead className="bg-muted/60 text-muted-foreground"><tr><th className="px-5 py-3 font-medium">Colaborador</th><th className="px-4 py-3 font-medium">Área</th><th className="px-4 py-3 font-medium">Perfil no portal</th><th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3 text-right font-medium">Ações</th></tr></thead><tbody>{people.map((person) => <tr key={person.email} className="border-t hover:bg-muted/30"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-full bg-muted font-bold text-primary">{person.initials}</span><div><strong className="block text-sm">{person.name}</strong><span className="text-muted-foreground">{person.email}</span></div></div></td><td className="px-4 py-4">{person.area}</td><td className="px-4 py-4">{person.role}</td><td className="px-4 py-4"><StatusBadge status={person.status} /></td><td className="px-4 py-4"><div className="flex justify-end gap-1">{person.status === "Pendente" ? <Button size="sm" onClick={() => setModal("approve")}>Aprovar</Button> : <><Button variant="ghost" size="icon" onClick={() => showNotice(`Perfil de ${person.name} aberto para edição.`)} aria-label={`Editar ${person.name}`}><Settings /></Button><Button variant="ghost" size="icon" onClick={() => setModal("block")} aria-label={`Mais ações para ${person.name}`}><MoreHorizontal /></Button></>}</div></td></tr>)}</tbody></table></div>
+      <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead className="bg-muted/60 text-muted-foreground"><tr><th className="px-5 py-3 font-medium">Colaborador</th><th className="px-4 py-3 font-medium">Área</th><th className="px-4 py-3 font-medium">Funções no portal</th><th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3 text-right font-medium">Ações</th></tr></thead><tbody>{people.map((person) => <tr key={person.email} className="border-t hover:bg-muted/30"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-full bg-muted font-bold text-primary">{person.initials}</span><div><strong className="block text-sm">{person.name}</strong><span className="text-muted-foreground">{person.email}</span></div></div></td><td className="px-4 py-4">{person.area}</td><td className="px-4 py-4"><div className="flex max-w-64 flex-wrap gap-1">{person.roles.map((r) => <Badge key={r} variant="outline">{r}</Badge>)}</div></td><td className="px-4 py-4"><StatusBadge status={person.status} /></td><td className="px-4 py-4"><div className="flex justify-end gap-1">{person.status === "Pendente" ? <Button size="sm" onClick={() => setModal("approve")}>Aprovar</Button> : <><Button variant="ghost" size="icon" onClick={() => { setEditing(person); setDraftRoles(person.roles); }} aria-label={`Editar ${person.name}`}><Settings /></Button><Button variant="ghost" size="icon" onClick={() => setModal("block")} aria-label={`Mais ações para ${person.name}`}><MoreHorizontal /></Button></>}</div></td></tr>)}</tbody></table></div>
     </section>
   </div>;
 }
