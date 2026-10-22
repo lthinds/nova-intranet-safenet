@@ -307,7 +307,7 @@ export function NoticeDetailDialog({ item, onClose, onEdit }: { item: Announceme
 
 export type NoticeDraft = Omit<Announcement, "id" | "publishedAt" | "expiresAt">;
 
-export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate }: { open: boolean; editing?: Announcement | null; onClose: () => void; onCreate: (item: NoticeDraft, expiration: string, customDate?: string) => void; onUpdate?: (item: Announcement) => void }) {
+export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate, roles = [], directory = [] }: { open: boolean; editing?: Announcement | null; onClose: () => void; onCreate: (item: NoticeDraft, expiration: string, customDate?: string) => void; onUpdate?: (item: Announcement) => void; roles?: string[]; directory?: Recipient[] }) {
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [body, setBody] = useState("");
@@ -317,16 +317,19 @@ export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate 
   const [customDate, setCustomDate] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
+  const [audience, setAudience] = useState<Audience>({ mode: "todos" });
 
   useEffect(() => {
     if (!open) return;
     setTitle(editing?.title ?? ""); setSummary(editing?.summary ?? ""); setBody(editing?.body ?? "");
     setSector(editing?.sector ?? "RH"); setMandatory(editing?.mandatory ?? true);
     setImageUrl(editing?.imageUrl ?? ""); setVideoUrl(editing?.videoUrl ?? "");
+    setAudience(editing?.audience ?? { mode: "todos" });
     setExpiration(editing ? "custom" : "7"); setCustomDate(editing ? editing.expiresAt.slice(0, 10) : "");
   }, [open, editing]);
 
   if (!open) return null;
+  const audienceOk = audience.mode === "todos" || (audience.mode === "funcoes" ? audience.roles.length > 0 : audience.people.length > 0);
   const videoInvalid = videoUrl.trim() !== "" && !youtubeId(videoUrl);
   const valid = title.trim() && summary.trim() && !videoInvalid && (expiration !== "custom" || customDate);
   const onFile = (file?: File) => { if (!file) return; const r = new FileReader(); r.onload = () => setImageUrl(String(r.result)); r.readAsDataURL(file); };
