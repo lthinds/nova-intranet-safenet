@@ -50,8 +50,8 @@ export type Announcement = {
   publishedAt: string;
   expiresAt: string;
   mandatory: boolean;
-  imageUrl?: string;
-  videoUrl?: string;
+  imageUrl?: string | undefined;
+  videoUrl?: string | undefined;
 };
 
 /** Extracts the video id from common YouTube link formats. */
