@@ -52,7 +52,63 @@ export type Announcement = {
   mandatory: boolean;
   imageUrl?: string | undefined;
   videoUrl?: string | undefined;
+  audience?: Audience | undefined;
 };
+
+/** Who receives a notice: everyone, anyone holding one of the roles, or specific people (by e-mail). */
+export type Audience = { mode: "todos" } | { mode: "funcoes"; roles: string[] } | { mode: "individual"; people: string[] };
+export type Recipient = { name: string; email: string; roles: string[] };
+
+export function isRecipient(item: Announcement, user: Recipient) {
+  const a = item.audience ?? { mode: "todos" };
+  if (a.mode === "todos") return true;
+  if (a.mode === "funcoes") return a.roles.some((r) => user.roles.includes(r));
+  return a.people.includes(user.email);
+}
+
+export function audienceLabel(a: Audience | undefined) {
+  if (!a || a.mode === "todos") return "Público: toda a empresa";
+  if (a.mode === "funcoes") return `Funções: ${a.roles.join(", ")}`;
+  return `${a.people.length} ${a.people.length === 1 ? "destinatário" : "destinatários"} específicos`;
+}
+
+function AudiencePicker({ value, onChange, roles, directory }: { value: Audience; onChange: (a: Audience) => void; roles: string[]; directory: Recipient[] }) {
+  const [query, setQuery] = useState("");
+  const modes: [Audience["mode"], string][] = [["todos", "Toda a empresa"], ["funcoes", "Por função"], ["individual", "Colaboradores específicos"]];
+  const selected = value.mode === "individual" ? value.people : [];
+  const suggestions = query.trim() ? directory.filter((p) => !selected.includes(p.email) && `${p.name} ${p.email}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 6) : [];
+  return (
+    <div className="space-y-3 rounded-md border p-3">
+      <p className="flex items-center gap-2 text-xs font-bold"><Users className="size-4 text-primary" />Quem recebe este aviso</p>
+      <div className="grid gap-2 sm:grid-cols-3" role="radiogroup">
+        {modes.map(([m, label]) => (
+          <button key={m} type="button" role="radio" aria-checked={value.mode === m} onClick={() => value.mode !== m && onChange(m === "todos" ? { mode: "todos" } : m === "funcoes" ? { mode: "funcoes", roles: [] } : { mode: "individual", people: [] })} className={cn("rounded-md border px-3 py-2 text-left text-xs font-semibold transition-colors", value.mode === m ? "border-primary bg-accent text-foreground" : "text-muted-foreground hover:bg-muted")}>
+            <span className={cn("mr-2 inline-block size-2.5 rounded-full border", value.mode === m && "border-primary bg-primary")} />{label}
+          </button>
+        ))}
+      </div>
+      {value.mode === "todos" && <p className="text-xs text-muted-foreground">Será exibido para todos os {directory.length} colaboradores cadastrados.</p>}
+      {value.mode === "funcoes" && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-1.5">
+            {roles.map((r) => { const on = value.roles.includes(r); return <button key={r} type="button" aria-pressed={on} onClick={() => onChange({ mode: "funcoes", roles: on ? value.roles.filter((x) => x !== r) : [...value.roles, r] })} className={cn("rounded-full border px-3 py-1 text-xs font-medium", on ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>{r}</button>; })}
+          </div>
+          <p className="text-xs text-muted-foreground">{value.roles.length ? `Recebem: quem tiver qualquer uma das ${value.roles.length} funções marcadas.` : "Marque ao menos uma função."}</p>
+        </div>
+      )}
+      {value.mode === "individual" && (
+        <div className="space-y-2">
+          {!!selected.length && <div className="flex flex-wrap gap-1.5">{selected.map((email) => { const p = directory.find((d) => d.email === email); return <span key={email} className="inline-flex items-center gap-1 rounded-full border bg-muted px-3 py-1 text-xs font-medium">{p?.name ?? email}<button type="button" aria-label={`Remover ${p?.name ?? email}`} onClick={() => onChange({ mode: "individual", people: selected.filter((x) => x !== email) })}><X className="size-3" /></button></span>; })}</div>}
+          <div className="relative">
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Digite o nome ou e-mail do colaborador" />
+            {!!suggestions.length && <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border bg-popover shadow-md">{suggestions.map((p) => <li key={p.email}><button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => { onChange({ mode: "individual", people: [...selected, p.email] }); setQuery(""); }}><strong className="block">{p.name}</strong><span className="text-xs text-muted-foreground">{p.email}</span></button></li>)}</ul>}
+          </div>
+          {!selected.length && <p className="text-xs text-muted-foreground">Adicione ao menos um colaborador.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Extracts the video id from common YouTube link formats. */
 export function youtubeId(url: string): string | null {
