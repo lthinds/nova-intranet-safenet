@@ -286,7 +286,7 @@ export function NoticesView({ items, now, acknowledged, onCreate, onOpen }: { it
             <li key={item.id} className="relative">
               <span className={cn("absolute -left-[31px] top-5 size-3 rounded-full ring-4 ring-background", active ? "bg-primary" : "bg-muted-foreground/40")} />
               <button onClick={() => onOpen(item)} className={cn("w-full rounded-lg border bg-card p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md", !active && "opacity-70")}>
-                <div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold">{fmt(item.publishedAt)}</span><SectorBadge sector={item.sector} />{item.mandatory && <Badge variant="outline" className="border-brand-orange/30 bg-brand-orange/10 text-brand-orange"><BellRing className="mr-1 size-3" />Tela cheia no login</Badge>}<Badge variant="outline" className={active ? "border-success/20 bg-success-soft text-success" : "bg-muted text-muted-foreground"}>{active ? `Vigente até ${fmt(item.expiresAt)}` : `Expirou em ${fmt(item.expiresAt)}`}</Badge>{acknowledged.includes(item.id) && <span className="text-[11px] text-muted-foreground">· Leitura confirmada</span>}</div>
+                <div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold">{fmt(item.publishedAt)}</span><SectorBadge sector={item.sector} />{item.mandatory && <Badge variant="outline" className="border-brand-orange/30 bg-brand-orange/10 text-brand-orange"><BellRing className="mr-1 size-3" />Tela cheia no login</Badge>}<Badge variant="outline" className={active ? "border-success/20 bg-success-soft text-success" : "bg-muted text-muted-foreground"}>{active ? `Vigente até ${fmt(item.expiresAt)}` : `Expirou em ${fmt(item.expiresAt)}`}</Badge><Badge variant="outline"><Users className="mr-1 size-3" />{audienceLabel(item.audience)}</Badge>{acknowledged.includes(item.id) && <span className="text-[11px] text-muted-foreground">· Leitura confirmada</span>}</div>
                 <h3 className="font-display mt-3 text-base font-bold">{item.title}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{item.summary}</p>
                 <span className="mt-3 flex items-center gap-1 text-xs font-bold text-primary">Ler aviso completo <ArrowRight className="size-3" /></span>
@@ -331,9 +331,9 @@ export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate,
   if (!open) return null;
   const audienceOk = audience.mode === "todos" || (audience.mode === "funcoes" ? audience.roles.length > 0 : audience.people.length > 0);
   const videoInvalid = videoUrl.trim() !== "" && !youtubeId(videoUrl);
-  const valid = title.trim() && summary.trim() && !videoInvalid && (expiration !== "custom" || customDate);
+  const valid = title.trim() && summary.trim() && audienceOk && !videoInvalid && (expiration !== "custom" || customDate);
   const onFile = (file?: File) => { if (!file) return; const r = new FileReader(); r.onload = () => setImageUrl(String(r.result)); r.readAsDataURL(file); };
-  const draft: NoticeDraft = { title, summary, body: body || summary, sector, mandatory, author: sector === "Coordenação" ? "Marina Alves" : sector, imageUrl: imageUrl || undefined, videoUrl: videoUrl.trim() || undefined };
+  const draft: NoticeDraft = { title, summary, body: body || summary, sector, mandatory, author: sector === "Coordenação" ? "Marina Alves" : sector, imageUrl: imageUrl || undefined, videoUrl: videoUrl.trim() || undefined, audience };
   const preview = { ...draft, id: "preview", publishedAt: new Date().toISOString(), expiresAt: new Date().toISOString() };
 
   return (
@@ -354,6 +354,7 @@ export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate,
               <Input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
               {videoInvalid && <p className="text-xs text-destructive">Link do YouTube não reconhecido.</p>}
             </div>
+            <AudiencePicker value={audience} onChange={setAudience} roles={roles} directory={directory} />
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block text-xs font-medium">Setor responsável<Select value={sector} onValueChange={(v) => setSector(v as Sector)}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{publisherSectors.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></label>
               <label className="block text-xs font-medium">Expira em<Select value={expiration} onValueChange={setExpiration}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1">24 horas</SelectItem><SelectItem value="7">7 dias</SelectItem><SelectItem value="15">15 dias</SelectItem><SelectItem value="30">30 dias</SelectItem><SelectItem value="custom">Escolher data</SelectItem></SelectContent></Select></label>
@@ -363,7 +364,7 @@ export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate,
           </div>
           <div className="rounded-lg border bg-muted/30 p-4">
             <p className="mb-3 text-[10px] font-bold uppercase text-muted-foreground">Pré-visualização</p>
-            <SectorBadge sector={sector} />
+            <div className="flex flex-wrap items-center gap-2"><SectorBadge sector={sector} /><Badge variant="outline"><Users className="mr-1 size-3" />{audienceLabel(audience)}</Badge></div>
             <h3 className="font-display mt-3 text-lg font-bold">{title || "Título do aviso"}</h3>
             <p className="mt-1 text-sm font-semibold">{summary || "Subtítulo do aviso"}</p>
             <NoticeBody item={preview} />

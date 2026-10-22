@@ -70,6 +70,7 @@ import {
   CreateNoticeDialog,
   HeroCarousel,
   MandatoryNoticeOverlay,
+  isRecipient,
   NoticeDetailDialog,
   NoticesView,
   SectorBadge,
@@ -116,6 +117,7 @@ const apps: AppItem[] = [
   { name: "Gestor de Recrutamento", description: "Vagas, currículos e candidatos.", category: "RH", integration: "SSO integrado", status: "Disponível", icon: Users },
 ];
 
+const currentUser = { name: "Marina Alves", email: "marina.alves@empresa.com.br", roles: ["Coordenação", "Monitoramento"] };
 const portalRoles = ["Coordenação", "RH", "DP", "Marketing", "Monitoramento", "Operacional", "Frota", "Comercial", "Licitações", "Técnico"];
 
 type Person = { name: string; email: string; area: string; roles: string[]; status: string; initials: string };
@@ -170,7 +172,7 @@ export function PortalPrototype() {
     window.localStorage.setItem("safenet-theme", next ? "dark" : "light");
   }
 
-  const pendingMandatory = sortByDateDesc(announcements).filter((item) => item.mandatory && isActive(item, now) && !acknowledged.includes(item.id));
+  const pendingMandatory = sortByDateDesc(announcements).filter((item) => item.mandatory && isActive(item, now) && isRecipient(item, currentUser) && !acknowledged.includes(item.id));
   const [access, setAccess] = useState<Record<string, boolean>>({
     "Ponto — Pontotel": true,
     Webmail: true,
@@ -277,7 +279,7 @@ export function PortalPrototype() {
       <ApplicationDialog app={selectedApp} onClose={() => setSelectedApp(null)} showNotice={showNotice} />
       <ActionDialog modal={modal} setModal={setModal} showNotice={showNotice} />
       <NoticeDetailDialog item={openNotice} onClose={() => setOpenNotice(null)} onEdit={(item) => { setOpenNotice(null); setEditingNotice(item); setCreateNotice(true); }} />
-      <CreateNoticeDialog open={createNotice} editing={editingNotice} onClose={() => { setCreateNotice(false); setEditingNotice(null); }} onUpdate={(item) => { setAnnouncements((list) => list.map((a) => (a.id === item.id ? item : a))); setCreateNotice(false); setEditingNotice(null); showNotice("Aviso atualizado."); }} onCreate={(data, expiration, customDate) => {
+      <CreateNoticeDialog roles={portalRoles} directory={seedPeople} open={createNotice} editing={editingNotice} onClose={() => { setCreateNotice(false); setEditingNotice(null); }} onUpdate={(item) => { setAnnouncements((list) => list.map((a) => (a.id === item.id ? item : a))); setCreateNotice(false); setEditingNotice(null); showNotice("Aviso atualizado."); }} onCreate={(data, expiration, customDate) => {
         const published = new Date();
         setAnnouncements((list) => [{ ...data, id: `n${published.getTime()}`, publishedAt: published.toISOString(), expiresAt: computeExpiration(published, expiration, customDate) }, ...list]);
         setCreateNotice(false);

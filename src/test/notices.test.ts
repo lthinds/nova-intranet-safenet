@@ -15,3 +15,18 @@ describe("expiração de avisos", () => {
     expect(isActive(item, base)).toBe(false);
   });
 });
+
+import { isRecipient, type Announcement } from "@/components/portal-communications";
+describe("notice audience", () => {
+  const base = { id: "x", title: "t", summary: "s", body: "b", sector: "RH", author: "RH", publishedAt: "", expiresAt: "", mandatory: true } as Announcement;
+  const user = { name: "Ana", email: "ana@x.com", roles: ["Frota", "Técnico"] };
+  it("everyone receives company-wide notices", () => expect(isRecipient(base, user)).toBe(true));
+  it("role audience matches any of the user's roles", () => {
+    expect(isRecipient({ ...base, audience: { mode: "funcoes", roles: ["Técnico"] } }, user)).toBe(true);
+    expect(isRecipient({ ...base, audience: { mode: "funcoes", roles: ["RH"] } }, user)).toBe(false);
+  });
+  it("individual audience only reaches listed people", () => {
+    expect(isRecipient({ ...base, audience: { mode: "individual", people: ["ana@x.com"] } }, user)).toBe(true);
+    expect(isRecipient({ ...base, audience: { mode: "individual", people: ["bob@x.com"] } }, user)).toBe(false);
+  });
+});
