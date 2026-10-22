@@ -16,7 +16,7 @@ describe("expiração de avisos", () => {
   });
 });
 
-import { isRecipient, type Announcement } from "@/components/portal-communications";
+import { isRecipient } from "@/components/portal-communications";
 describe("notice audience", () => {
   const base = { id: "x", title: "t", summary: "s", body: "b", sector: "RH", author: "RH", publishedAt: "", expiresAt: "", mandatory: true } as Announcement;
   const user = { name: "Ana", email: "ana@x.com", roles: ["Frota", "Técnico"] };
