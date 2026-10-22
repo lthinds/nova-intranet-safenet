@@ -8,6 +8,11 @@ import {
   Clock3,
   Database,
   ExternalLink,
+  ImageIcon,
+  Pencil,
+  Upload,
+  X,
+  Youtube,
   GraduationCap,
   HeartHandshake,
   Megaphone,
@@ -45,7 +50,26 @@ export type Announcement = {
   publishedAt: string;
   expiresAt: string;
   mandatory: boolean;
+  imageUrl?: string | undefined;
+  videoUrl?: string | undefined;
 };
+
+/** Extracts the video id from common YouTube link formats. */
+export function youtubeId(url: string): string | null {
+  const m = url.trim().match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m?.[1] ?? null;
+}
+
+export function NoticeBody({ item }: { item: Announcement }) {
+  const vid = item.videoUrl ? youtubeId(item.videoUrl) : null;
+  return (
+    <div className="mt-3 space-y-3">
+      {item.imageUrl && <img src={item.imageUrl} alt="" className="max-h-80 w-full rounded-md border object-cover" />}
+      {item.body.split(/\n\s*\n/).map((p, i) => <p key={i} className="whitespace-pre-line text-sm leading-7 text-muted-foreground">{p}</p>)}
+      {vid && <div className="aspect-video overflow-hidden rounded-md border"><iframe className="size-full" src={`https://www.youtube-nocookie.com/embed/${vid}`} title="Vídeo do aviso" allow="accelerometer; encrypted-media; picture-in-picture" allowFullScreen /></div>}
+    </div>
+  );
+}
 
 const DAY = 86_400_000;
 
@@ -171,7 +195,7 @@ export function MandatoryNoticeOverlay({ items, onAcknowledge }: { items: Announ
             <div className="flex flex-wrap items-center gap-2"><SectorBadge sector={current.sector} /><span className="text-xs text-muted-foreground">Publicado em {fmt(current.publishedAt)} · por {current.author}</span></div>
             <h2 id="mandatory-title" className="font-display mt-4 text-2xl font-bold leading-tight md:text-4xl">{current.title}</h2>
             <p className="mt-4 text-base font-semibold leading-7">{current.summary}</p>
-            <p className="mt-3 text-sm leading-7 text-muted-foreground">{current.body}</p>
+            <NoticeBody item={current} />
             <p className="mt-5 flex items-center gap-2 text-xs text-muted-foreground"><Clock3 className="size-3.5" /> Vigente até {fmt(current.expiresAt)}</p>
             <div className="mt-auto space-y-4 pt-8">
               <label className="flex items-center gap-3 rounded-md border p-4 text-sm"><Checkbox checked={checked} onCheckedChange={(v) => setChecked(v === true)} /> Li e estou ciente deste comunicado.</label>
@@ -220,9 +244,9 @@ export function NoticesView({ items, now, acknowledged, onCreate, onOpen }: { it
   );
 }
 
-export function NoticeDetailDialog({ item, onClose }: { item: Announcement | null; onClose: () => void }) {
+export function NoticeDetailDialog({ item, onClose, onEdit }: { item: Announcement | null; onClose: () => void; onEdit?: (item: Announcement) => void }) {
   if (!item) return null;
-  return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent className="max-w-2xl"><DialogHeader><div className="flex flex-wrap items-center gap-2"><SectorBadge sector={item.sector} /><span className="text-xs text-muted-foreground">{fmt(item.publishedAt)} · {item.author}</span></div><DialogTitle className="font-display pt-2 text-xl">{item.title}</DialogTitle><DialogDescription className="text-sm font-semibold text-foreground">{item.summary}</DialogDescription></DialogHeader><p className="text-sm leading-7 text-muted-foreground">{item.body}</p><p className="flex items-center gap-2 text-xs text-muted-foreground"><Clock3 className="size-3.5" />Vigência até {fmt(item.expiresAt)}</p><DialogFooter><Button onClick={onClose}>Fechar</Button></DialogFooter></DialogContent></Dialog>;
+  return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto"><DialogHeader><div className="flex flex-wrap items-center gap-2"><SectorBadge sector={item.sector} /><span className="text-xs text-muted-foreground">{fmt(item.publishedAt)} · {item.author}</span></div><DialogTitle className="font-display pt-2 text-xl">{item.title}</DialogTitle><DialogDescription className="text-sm font-semibold text-foreground">{item.summary}</DialogDescription></DialogHeader><NoticeBody item={item} /><p className="flex items-center gap-2 text-xs text-muted-foreground"><Clock3 className="size-3.5" />Vigência até {fmt(item.expiresAt)}</p><DialogFooter>{onEdit && <Button variant="outline" onClick={() => onEdit(item)}><Pencil />Editar aviso</Button>}<Button onClick={onClose}>Fechar</Button></DialogFooter></DialogContent></Dialog>;
 }
 
 export type NoticeDraft = Omit<Announcement, "id" | "publishedAt" | "expiresAt">;
