@@ -52,7 +52,63 @@ export type Announcement = {
   mandatory: boolean;
   imageUrl?: string | undefined;
   videoUrl?: string | undefined;
+  audience?: Audience | undefined;
 };
+
+/** Who receives a notice: everyone, anyone holding one of the roles, or specific people (by e-mail). */
+export type Audience = { mode: "todos" } | { mode: "funcoes"; roles: string[] } | { mode: "individual"; people: string[] };
+export type Recipient = { name: string; email: string; roles: string[] };
+
+export function isRecipient(item: Announcement, user: Recipient) {
+  const a = item.audience ?? { mode: "todos" };
+  if (a.mode === "todos") return true;
+  if (a.mode === "funcoes") return a.roles.some((r) => user.roles.includes(r));
+  return a.people.includes(user.email);
+}
+
+export function audienceLabel(a: Audience | undefined) {
+  if (!a || a.mode === "todos") return "Público: toda a empresa";
+  if (a.mode === "funcoes") return `Funções: ${a.roles.join(", ")}`;
+  return `${a.people.length} ${a.people.length === 1 ? "destinatário" : "destinatários"} específicos`;
+}
+
+function AudiencePicker({ value, onChange, roles, directory }: { value: Audience; onChange: (a: Audience) => void; roles: string[]; directory: Recipient[] }) {
+  const [query, setQuery] = useState("");
+  const modes: [Audience["mode"], string][] = [["todos", "Toda a empresa"], ["funcoes", "Por função"], ["individual", "Colaboradores específicos"]];
+  const selected = value.mode === "individual" ? value.people : [];
+  const suggestions = query.trim() ? directory.filter((p) => !selected.includes(p.email) && `${p.name} ${p.email}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 6) : [];
+  return (
+    <div className="space-y-3 rounded-md border p-3">
+      <p className="flex items-center gap-2 text-xs font-bold"><Users className="size-4 text-primary" />Quem recebe este aviso</p>
+      <div className="grid gap-2 sm:grid-cols-3" role="radiogroup">
+        {modes.map(([m, label]) => (
+          <button key={m} type="button" role="radio" aria-checked={value.mode === m} onClick={() => value.mode !== m && onChange(m === "todos" ? { mode: "todos" } : m === "funcoes" ? { mode: "funcoes", roles: [] } : { mode: "individual", people: [] })} className={cn("rounded-md border px-3 py-2 text-left text-xs font-semibold transition-colors", value.mode === m ? "border-primary bg-accent text-foreground" : "text-muted-foreground hover:bg-muted")}>
+            <span className={cn("mr-2 inline-block size-2.5 rounded-full border", value.mode === m && "border-primary bg-primary")} />{label}
+          </button>
+        ))}
+      </div>
+      {value.mode === "todos" && <p className="text-xs text-muted-foreground">Será exibido para todos os {directory.length} colaboradores cadastrados.</p>}
+      {value.mode === "funcoes" && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-1.5">
+            {roles.map((r) => { const on = value.roles.includes(r); return <button key={r} type="button" aria-pressed={on} onClick={() => onChange({ mode: "funcoes", roles: on ? value.roles.filter((x) => x !== r) : [...value.roles, r] })} className={cn("rounded-full border px-3 py-1 text-xs font-medium", on ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>{r}</button>; })}
+          </div>
+          <p className="text-xs text-muted-foreground">{value.roles.length ? `Recebem: quem tiver qualquer uma das ${value.roles.length} funções marcadas.` : "Marque ao menos uma função."}</p>
+        </div>
+      )}
+      {value.mode === "individual" && (
+        <div className="space-y-2">
+          {!!selected.length && <div className="flex flex-wrap gap-1.5">{selected.map((email) => { const p = directory.find((d) => d.email === email); return <span key={email} className="inline-flex items-center gap-1 rounded-full border bg-muted px-3 py-1 text-xs font-medium">{p?.name ?? email}<button type="button" aria-label={`Remover ${p?.name ?? email}`} onClick={() => onChange({ mode: "individual", people: selected.filter((x) => x !== email) })}><X className="size-3" /></button></span>; })}</div>}
+          <div className="relative">
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Digite o nome ou e-mail do colaborador" />
+            {!!suggestions.length && <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border bg-popover shadow-md">{suggestions.map((p) => <li key={p.email}><button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => { onChange({ mode: "individual", people: [...selected, p.email] }); setQuery(""); }}><strong className="block">{p.name}</strong><span className="text-xs text-muted-foreground">{p.email}</span></button></li>)}</ul>}
+          </div>
+          {!selected.length && <p className="text-xs text-muted-foreground">Adicione ao menos um colaborador.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Extracts the video id from common YouTube link formats. */
 export function youtubeId(url: string): string | null {
@@ -230,7 +286,7 @@ export function NoticesView({ items, now, acknowledged, onCreate, onOpen }: { it
             <li key={item.id} className="relative">
               <span className={cn("absolute -left-[31px] top-5 size-3 rounded-full ring-4 ring-background", active ? "bg-primary" : "bg-muted-foreground/40")} />
               <button onClick={() => onOpen(item)} className={cn("w-full rounded-lg border bg-card p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md", !active && "opacity-70")}>
-                <div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold">{fmt(item.publishedAt)}</span><SectorBadge sector={item.sector} />{item.mandatory && <Badge variant="outline" className="border-brand-orange/30 bg-brand-orange/10 text-brand-orange"><BellRing className="mr-1 size-3" />Tela cheia no login</Badge>}<Badge variant="outline" className={active ? "border-success/20 bg-success-soft text-success" : "bg-muted text-muted-foreground"}>{active ? `Vigente até ${fmt(item.expiresAt)}` : `Expirou em ${fmt(item.expiresAt)}`}</Badge>{acknowledged.includes(item.id) && <span className="text-[11px] text-muted-foreground">· Leitura confirmada</span>}</div>
+                <div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold">{fmt(item.publishedAt)}</span><SectorBadge sector={item.sector} />{item.mandatory && <Badge variant="outline" className="border-brand-orange/30 bg-brand-orange/10 text-brand-orange"><BellRing className="mr-1 size-3" />Tela cheia no login</Badge>}<Badge variant="outline" className={active ? "border-success/20 bg-success-soft text-success" : "bg-muted text-muted-foreground"}>{active ? `Vigente até ${fmt(item.expiresAt)}` : `Expirou em ${fmt(item.expiresAt)}`}</Badge><Badge variant="outline"><Users className="mr-1 size-3" />{audienceLabel(item.audience)}</Badge>{acknowledged.includes(item.id) && <span className="text-[11px] text-muted-foreground">· Leitura confirmada</span>}</div>
                 <h3 className="font-display mt-3 text-base font-bold">{item.title}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{item.summary}</p>
                 <span className="mt-3 flex items-center gap-1 text-xs font-bold text-primary">Ler aviso completo <ArrowRight className="size-3" /></span>
@@ -251,7 +307,7 @@ export function NoticeDetailDialog({ item, onClose, onEdit }: { item: Announceme
 
 export type NoticeDraft = Omit<Announcement, "id" | "publishedAt" | "expiresAt">;
 
-export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate }: { open: boolean; editing?: Announcement | null; onClose: () => void; onCreate: (item: NoticeDraft, expiration: string, customDate?: string) => void; onUpdate?: (item: Announcement) => void }) {
+export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate, roles = [], directory = [] }: { open: boolean; editing?: Announcement | null; onClose: () => void; onCreate: (item: NoticeDraft, expiration: string, customDate?: string) => void; onUpdate?: (item: Announcement) => void; roles?: string[]; directory?: Recipient[] }) {
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [body, setBody] = useState("");
@@ -261,20 +317,23 @@ export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate 
   const [customDate, setCustomDate] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
+  const [audience, setAudience] = useState<Audience>({ mode: "todos" });
 
   useEffect(() => {
     if (!open) return;
     setTitle(editing?.title ?? ""); setSummary(editing?.summary ?? ""); setBody(editing?.body ?? "");
     setSector(editing?.sector ?? "RH"); setMandatory(editing?.mandatory ?? true);
     setImageUrl(editing?.imageUrl ?? ""); setVideoUrl(editing?.videoUrl ?? "");
+    setAudience(editing?.audience ?? { mode: "todos" });
     setExpiration(editing ? "custom" : "7"); setCustomDate(editing ? editing.expiresAt.slice(0, 10) : "");
   }, [open, editing]);
 
   if (!open) return null;
+  const audienceOk = audience.mode === "todos" || (audience.mode === "funcoes" ? audience.roles.length > 0 : audience.people.length > 0);
   const videoInvalid = videoUrl.trim() !== "" && !youtubeId(videoUrl);
-  const valid = title.trim() && summary.trim() && !videoInvalid && (expiration !== "custom" || customDate);
+  const valid = title.trim() && summary.trim() && audienceOk && !videoInvalid && (expiration !== "custom" || customDate);
   const onFile = (file?: File) => { if (!file) return; const r = new FileReader(); r.onload = () => setImageUrl(String(r.result)); r.readAsDataURL(file); };
-  const draft: NoticeDraft = { title, summary, body: body || summary, sector, mandatory, author: sector === "Coordenação" ? "Marina Alves" : sector, imageUrl: imageUrl || undefined, videoUrl: videoUrl.trim() || undefined };
+  const draft: NoticeDraft = { title, summary, body: body || summary, sector, mandatory, author: sector === "Coordenação" ? "Marina Alves" : sector, imageUrl: imageUrl || undefined, videoUrl: videoUrl.trim() || undefined, audience };
   const preview = { ...draft, id: "preview", publishedAt: new Date().toISOString(), expiresAt: new Date().toISOString() };
 
   return (
@@ -295,6 +354,7 @@ export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate 
               <Input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
               {videoInvalid && <p className="text-xs text-destructive">Link do YouTube não reconhecido.</p>}
             </div>
+            <AudiencePicker value={audience} onChange={setAudience} roles={roles} directory={directory} />
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block text-xs font-medium">Setor responsável<Select value={sector} onValueChange={(v) => setSector(v as Sector)}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{publisherSectors.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></label>
               <label className="block text-xs font-medium">Expira em<Select value={expiration} onValueChange={setExpiration}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1">24 horas</SelectItem><SelectItem value="7">7 dias</SelectItem><SelectItem value="15">15 dias</SelectItem><SelectItem value="30">30 dias</SelectItem><SelectItem value="custom">Escolher data</SelectItem></SelectContent></Select></label>
@@ -304,7 +364,7 @@ export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate 
           </div>
           <div className="rounded-lg border bg-muted/30 p-4">
             <p className="mb-3 text-[10px] font-bold uppercase text-muted-foreground">Pré-visualização</p>
-            <SectorBadge sector={sector} />
+            <div className="flex flex-wrap items-center gap-2"><SectorBadge sector={sector} /><Badge variant="outline"><Users className="mr-1 size-3" />{audienceLabel(audience)}</Badge></div>
             <h3 className="font-display mt-3 text-lg font-bold">{title || "Título do aviso"}</h3>
             <p className="mt-1 text-sm font-semibold">{summary || "Subtítulo do aviso"}</p>
             <NoticeBody item={preview} />
