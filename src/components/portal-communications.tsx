@@ -403,7 +403,7 @@ export function TrainingsView({ courses, now }: { courses: TrainingCourse[]; now
     <div className="space-y-5">
       <section className="grid gap-4 rounded-lg border border-dashed border-warning/40 bg-warning-soft p-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
         <span className="grid size-10 place-items-center rounded-md bg-warning text-warning-foreground"><Database className="size-5" /></span>
-        <div><strong className="text-sm">Origem dos cursos aguardando confirmação</strong><p className="mt-1 text-xs leading-5 text-muted-foreground">Na intranet atual, os cursos vêm de uma lista atualizada por uma rotina interna (agenda Dahua Academy e parceiros). Esta área já usa o mesmo formato e será ligada à fonte oficial quando confirmada. Os cursos abaixo são exemplos.</p></div>
+        <div><strong className="text-sm">Lista de treinamentos alimentada manualmente</strong><p className="mt-1 text-xs leading-5 text-muted-foreground">Sem atualização automática por enquanto. Os cursos são cadastrados diretamente na lista do portal pelo responsável. Os itens abaixo são exemplos.</p></div>
       </section>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {list.map((c) => {
