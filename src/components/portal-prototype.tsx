@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { appsData, deriveGroups, OTHER_GROUP } from "@/data/apps";
 import {
   AppWindow,
   ArrowRight,
@@ -88,8 +89,10 @@ type View = "inicio" | "avisos" | "treinamentos" | "aplicacoes" | "colaboradores
 type Integration = "SSO integrado" | "Link externo";
 
 type AppItem = {
+  id: string;
   name: string;
   description: string;
+  url: string;
   category: string;
   integration: Integration;
   status: "Disponível" | "Em breve";
@@ -97,25 +100,22 @@ type AppItem = {
   recent?: boolean;
 };
 
-const apps: AppItem[] = [
-  { name: "Ponto — Pontotel", description: "Registro e acompanhamento do ponto.", category: "Acesso rápido", integration: "Link externo", status: "Disponível", icon: Clock3, recent: true },
-  { name: "Webmail", description: "E-mail corporativo e agenda.", category: "Acesso rápido", integration: "Link externo", status: "Disponível", icon: Mail, recent: true },
-  { name: "Relatório de Frota", description: "Preenchimento e relatórios de frota.", category: "Operacional", integration: "SSO integrado", status: "Disponível", icon: Car, recent: true },
-  { name: "Relatório de Monitoramento", description: "Relatórios semanais do monitoramento.", category: "Operacional", integration: "SSO integrado", status: "Disponível", icon: FileText },
-  { name: "Monitoramento", description: "Plantão, alarmes e CFTV em tempo real.", category: "Operacional", integration: "SSO integrado", status: "Disponível", icon: MonitorCheck, recent: true },
-  { name: "Segware Cloud", description: "Software de monitoramento parceiro.", category: "Operacional", integration: "Link externo", status: "Disponível", icon: Radio },
-  { name: "Auvo — Ordens de Serviço", description: "Ordens de serviço do operacional.", category: "Operacional", integration: "Link externo", status: "Disponível", icon: TicketCheck },
-  { name: "Auvo Desk — Chamados", description: "Abertura e acompanhamento de chamados.", category: "Operacional", integration: "Link externo", status: "Disponível", icon: CircleHelp },
-  { name: "Dashboard Comercial", description: "Pipeline, contratos e prospecção.", category: "Comercial", integration: "SSO integrado", status: "Disponível", icon: BarChart3 },
-  { name: "Planilha Comercial", description: "Base viva de contratos e histórico.", category: "Comercial", integration: "Link externo", status: "Disponível", icon: Grid2X2 },
-  { name: "Gestor de Pregões", description: "Fluxo completo dos processos licitatórios.", category: "Licitações", integration: "SSO integrado", status: "Disponível", icon: BriefcaseBusiness },
-  { name: "Painel de Licitações", description: "Indicadores e recortes comerciais.", category: "Licitações", integration: "SSO integrado", status: "Disponível", icon: BarChart3 },
-  { name: "Dahua Academy", description: "Agenda de treinamentos técnicos.", category: "Treinamentos", integration: "Link externo", status: "Disponível", icon: BookOpen },
-  { name: "Hikvision eLearning", description: "Portal de treinamento Hikvision.", category: "Treinamentos", integration: "Link externo", status: "Disponível", icon: BookOpen },
-  { name: "Intelbras — Treinamentos", description: "Portal de treinamentos Intelbras.", category: "Treinamentos", integration: "Link externo", status: "Disponível", icon: BookOpen },
-  { name: "Manuais técnicos", description: "Biblioteca de procedimentos técnicos.", category: "Técnico", integration: "SSO integrado", status: "Em breve", icon: FileText },
-  { name: "Gestor de Recrutamento", description: "Vagas, currículos e candidatos.", category: "RH", integration: "SSO integrado", status: "Disponível", icon: Users },
-];
+const iconMap: Record<string, ComponentType<{ className?: string }>> = {
+  clock: Clock3, mail: Mail, car: Car, file: FileText, monitor: MonitorCheck, radio: Radio, ticket: TicketCheck,
+  help: CircleHelp, chart: BarChart3, grid: Grid2X2, briefcase: BriefcaseBusiness, book: BookOpen, users: Users,
+};
+
+const apps: AppItem[] = appsData.map((a) => ({
+  id: a.id,
+  name: a.name,
+  description: a.description,
+  url: a.url,
+  category: a.group || OTHER_GROUP,
+  integration: a.integration === "sso" ? "SSO integrado" : "Link externo",
+  status: a.status === "em_breve" ? "Em breve" : "Disponível",
+  icon: iconMap[a.icon] ?? AppWindow,
+  recent: a.recent,
+}));
 
 const currentUser = { name: "Marina Alves", email: "marina.alves@empresa.com.br", roles: ["Coordenação", "Monitoramento"] };
 const portalRoles = ["Coordenação", "RH", "DP", "Marketing", "Monitoramento", "Operacional", "Frota", "Comercial", "Licitações", "Técnico"];
@@ -140,7 +140,7 @@ const navItems: Array<{ id: View; label: string; icon: ComponentType<{ className
   { id: "gestao", label: "Gestão de aplicações", icon: Settings },
 ];
 
-const categories = ["Todos", "Acesso rápido", "Operacional", "Comercial", "Licitações", "Treinamentos", "Técnico", "RH"];
+const categories = ["Todos", ...deriveGroups(appsData)];
 
 export function PortalPrototype() {
   const [view, setView] = useState<View>("inicio");
