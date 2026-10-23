@@ -114,7 +114,7 @@ const apps: AppItem[] = appsData.map((a) => ({
   integration: a.integration === "sso" ? "SSO integrado" : "Link externo",
   status: a.status === "em_breve" ? "Em breve" : "Disponível",
   icon: iconMap[a.icon] ?? AppWindow,
-  recent: a.recent,
+  recent: Boolean(a.recent),
 }));
 
 const currentUser = { name: "Marina Alves", email: "marina.alves@empresa.com.br", roles: ["Coordenação", "Monitoramento"] };
