@@ -81,7 +81,6 @@ import {
   computeExpiration,
   isActive,
   makeSeedAnnouncements,
-  makeSeedCourses,
   safenetMarkUrl,
   sortByDateDesc,
   type Announcement,
@@ -320,7 +319,7 @@ function ApplicationsView({ apps: visibleApps, query, setQuery, category, setCat
       <Select value={category} onValueChange={setCategory}><SelectTrigger className="h-10"><SelectValue /></SelectTrigger><SelectContent>{categories.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select>
       <Button variant="outline" className="h-10"><ListFilter /> Filtros</Button>
     </div>
-    <div className="flex items-center justify-between"><p className="text-xs text-muted-foreground"><strong className="text-foreground">{visibleApps.length}</strong> aplicações encontradas</p><div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex"><Eye className="size-4" /> Mostrando apenas ferramentas autorizadas</div></div>
+    <div className="flex items-center justify-between"><p className="text-xs text-muted-foreground"><strong className="text-foreground">{visibleApps.length}</strong> aplicações encontradas</p><div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex"><Eye className="size-4" /> Mostrando apenas ferramentas dos seus grupos (GS_App)</div></div>
     {visibleApps.length ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{visibleApps.map((app) => <AppCard key={app.name} app={app} onClick={() => onSelect(app)} />)}</div> : <div className="grid min-h-72 place-items-center rounded-lg border border-dashed bg-card text-center"><div><Search className="mx-auto size-8 text-muted-foreground" /><h2 className="mt-3 font-semibold">Nenhuma aplicação encontrada</h2><p className="mt-1 text-sm text-muted-foreground">Tente outro termo ou categoria.</p></div></div>}
   </div>;
 }
