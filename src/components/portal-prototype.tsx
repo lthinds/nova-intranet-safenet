@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { appsData, deriveGroups, OTHER_GROUP } from "@/data/apps";
+import { trainingsData } from "@/data/trainings";
+import { canSeeApp, demoProfiles, fetchUserInfo, SIGN_OUT_URL } from "@/lib/keycloak";
 import {
   AppWindow,
   ArrowRight,
@@ -85,7 +87,7 @@ import {
   type Announcement,
 } from "@/components/portal-communications";
 
-type View = "inicio" | "avisos" | "treinamentos" | "aplicacoes" | "colaboradores" | "acessos" | "gestao" | "login";
+type View = "inicio" | "avisos" | "treinamentos" | "aplicacoes" | "colaboradores" | "acessos" | "gestao";
 type Integration = "SSO integrado" | "Link externo";
 
 type AppItem = {
@@ -98,6 +100,7 @@ type AppItem = {
   status: "Disponível" | "Em breve";
   icon: ComponentType<{ className?: string }>;
   recent?: boolean;
+  keycloakGroup?: string;
 };
 
 const iconMap: Record<string, ComponentType<{ className?: string }>> = {
@@ -115,9 +118,9 @@ const apps: AppItem[] = appsData.map((a) => ({
   status: a.status === "em_breve" ? "Em breve" : "Disponível",
   icon: iconMap[a.icon] ?? AppWindow,
   recent: Boolean(a.recent),
+  keycloakGroup: a.keycloakGroup,
 }));
 
-const currentUser = { name: "Marina Alves", email: "marina.alves@empresa.com.br", roles: ["Coordenação", "Monitoramento"] };
 const portalRoles = ["Coordenação", "RH", "DP", "Marketing", "Monitoramento", "Operacional", "Frota", "Comercial", "Licitações", "Técnico"];
 
 type Person = { name: string; email: string; area: string; roles: string[]; status: string; initials: string };
@@ -152,7 +155,14 @@ export function PortalPrototype() {
   const [notice, setNotice] = useState<string | null>(null);
   const [now] = useState(() => new Date());
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => makeSeedAnnouncements(new Date()));
-  const [courses] = useState(() => makeSeedCourses(new Date()));
+  const [courses] = useState(() => trainingsData);
+  const [profileIndex, setProfileIndex] = useState(0);
+  const [liveUser, setLiveUser] = useState<{ name: string; email: string; groups: string[] } | null>(null);
+  useEffect(() => { fetchUserInfo(demoProfiles[0]!).then(({ user, demo }) => { if (!demo) setLiveUser(user); }); }, []);
+  const profile = demoProfiles[profileIndex] ?? demoProfiles[0]!;
+  const currentUser = liveUser ? { ...liveUser, roles: [] as string[], label: "Colaborador" } : profile;
+  const initials = currentUser.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
+  const visibleApps = useMemo(() => apps.filter((app) => canSeeApp(app, currentUser.groups)), [currentUser.groups]);
   const [acknowledged, setAcknowledged] = useState<string[]>([]);
   const [showMandatory, setShowMandatory] = useState(true);
   const [createNotice, setCreateNotice] = useState(false);
@@ -184,12 +194,12 @@ export function PortalPrototype() {
 
   const filteredApps = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("pt-BR");
-    return apps.filter((app) => {
+    return visibleApps.filter((app) => {
       const categoryMatches = category === "Todos" || app.category === category;
       const queryMatches = !needle || `${app.name} ${app.description} ${app.category}`.toLocaleLowerCase("pt-BR").includes(needle);
       return categoryMatches && queryMatches;
     });
-  }, [category, query]);
+  }, [category, query, visibleApps]);
 
   function navigate(next: View) {
     setView(next);
@@ -202,12 +212,8 @@ export function PortalPrototype() {
     window.setTimeout(() => setNotice(null), 3200);
   }
 
-  if (view === "login") {
-    return <LoginScreen onEnter={() => { setShowMandatory(true); navigate("inicio"); }} />;
-  }
-
-  const titles: Record<Exclude<View, "login">, { title: string; description: string }> = {
-    inicio: { title: "Bom dia, Marina", description: "Aqui está o que você precisa para começar o dia." },
+  const titles: Record<View, { title: string; description: string }> = {
+    inicio: { title: `Bom dia, ${currentUser.name.split(" ")[0]}`, description: "Aqui está o que você precisa para começar o dia." },
     avisos: { title: "Avisos e comunicados", description: "Todos os comunicados da empresa, organizados por data." },
     treinamentos: { title: "Treinamentos", description: "Cursos e capacitações disponíveis para as equipes." },
     aplicacoes: { title: "Aplicações", description: "Acesse as ferramentas disponíveis para o seu perfil." },
@@ -236,11 +242,11 @@ export function PortalPrototype() {
           })}
         </nav>
         <div className="border-t border-sidebar-border p-3">
-          <button onClick={() => navigate("login")} className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-md p-3 text-left transition-colors hover:bg-sidebar-accent">
-            <span className="grid size-9 place-items-center rounded-full bg-sidebar-primary text-xs font-bold text-sidebar-primary-foreground">MA</span>
-            <span className="min-w-0"><strong className="block truncate text-xs">Marina Alves</strong><small className="block truncate text-[10px] text-sidebar-foreground/50">Coordenadora</small></span>
+          <a href={SIGN_OUT_URL} onClick={(e) => { if (!liveUser) { e.preventDefault(); showNotice("Em produção, Sair encerra a sessão no Keycloak (/oauth2/sign_out)."); } }} className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-md p-3 text-left transition-colors hover:bg-sidebar-accent">
+            <span className="grid size-9 place-items-center rounded-full bg-sidebar-primary text-xs font-bold text-sidebar-primary-foreground">{initials}</span>
+            <span className="min-w-0"><strong className="block truncate text-xs">{currentUser.name}</strong><small className="block truncate text-[10px] text-sidebar-foreground/50">Sair</small></span>
             <LogOut className="size-4 text-sidebar-foreground/45" />
-          </button>
+          </a>
         </div>
       </aside>
 
@@ -256,7 +262,7 @@ export function PortalPrototype() {
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label={dark ? "Usar tema claro" : "Usar tema escuro"}>{dark ? <Sun /> : <Moon />}</Button>
             <Button variant="ghost" size="icon" aria-label="Avisos" onClick={() => navigate("avisos")} className="relative"><Bell /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-warning" /></Button>
             <span className="hidden h-6 w-px bg-border sm:block" />
-            <button onClick={() => navigate("login")} className="hidden items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-muted md:flex"><span className="grid size-8 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">MA</span><span><strong className="block text-xs">Marina Alves</strong><small className="block text-[10px] text-muted-foreground">Coordenadora</small></span><ChevronDown className="size-3 text-muted-foreground" /></button>
+            {liveUser ? <span className="hidden items-center gap-2 px-2 md:flex"><span className="grid size-8 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{initials}</span><strong className="text-xs">{currentUser.name}</strong></span> : <label className="relative hidden items-center gap-2 rounded-md px-2 py-1 hover:bg-muted md:flex" title="Simular usuário (demonstração do /oauth2/userinfo)"><span className="grid size-8 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{initials}</span><span><strong className="block text-xs">{currentUser.name}</strong><small className="block text-[10px] text-muted-foreground">{profile.label} · {currentUser.groups.length} grupos</small></span><ChevronDown className="size-3 text-muted-foreground" /><select aria-label="Simular usuário" className="absolute inset-0 cursor-pointer opacity-0" value={profileIndex} onChange={(e) => { setProfileIndex(Number(e.target.value)); setAcknowledged([]); setShowMandatory(true); }}>{demoProfiles.map((p, i) => <option key={p.email} value={i}>{p.name} — {p.label}</option>)}</select></label>}
           </div>
         </header>
 
@@ -266,7 +272,7 @@ export function PortalPrototype() {
             {view === "gestao" && <Button onClick={() => setModal("add")}><Plus /> Nova aplicação</Button>}
           </div>
 
-          {view === "inicio" && <HomeView navigate={navigate} onSelect={setSelectedApp} latest={sortByDateDesc(announcements).filter((item) => isActive(item, now)).slice(0, 2)} onOpenNotice={setOpenNotice} />}
+          {view === "inicio" && <HomeView apps={visibleApps} navigate={navigate} onSelect={setSelectedApp} latest={sortByDateDesc(announcements).filter((item) => isActive(item, now)).slice(0, 2)} onOpenNotice={setOpenNotice} />}
           {view === "avisos" && <NoticesView items={announcements} now={now} acknowledged={acknowledged} onCreate={() => setCreateNotice(true)} onOpen={setOpenNotice} />}
           {view === "treinamentos" && <TrainingsView courses={courses} now={now} />}
           {view === "aplicacoes" && <ApplicationsView apps={filteredApps} query={query} setQuery={setQuery} category={category} setCategory={setCategory} onSelect={setSelectedApp} />}
@@ -292,7 +298,7 @@ export function PortalPrototype() {
   );
 }
 
-function HomeView({ navigate, onSelect, latest, onOpenNotice }: { navigate: (view: View) => void; onSelect: (app: AppItem) => void; latest: Announcement[]; onOpenNotice: (item: Announcement) => void }) {
+function HomeView({ apps, navigate, onSelect, latest, onOpenNotice }: { apps: AppItem[]; navigate: (view: View) => void; onSelect: (app: AppItem) => void; latest: Announcement[]; onOpenNotice: (item: Announcement) => void }) {
   const recent = apps.filter((app) => app.recent);
   return <div className="space-y-7">
     <HeroCarousel onOpenNotices={() => navigate("avisos")} />
@@ -389,8 +395,4 @@ function ActionDialog({ modal, setModal, showNotice }: { modal: "add" | "approve
     block: { title: "Bloquear colaborador", description: "Esta ação impedirá novos acessos e, na versão final, encerrará as sessões nos sistemas próprios integrados.", confirm: "Confirmar bloqueio" },
   }[modal];
   return <Dialog open onOpenChange={(open) => !open && setModal(null)}><DialogContent><DialogHeader><DialogTitle>{content.title}</DialogTitle><DialogDescription>{content.description}</DialogDescription></DialogHeader>{modal === "add" ? <div className="space-y-4 py-2"><label className="block text-xs font-medium">Nome da aplicação<Input className="mt-1" placeholder="Ex.: Central de CFTV" /></label><div className="grid grid-cols-2 gap-3"><label className="block text-xs font-medium">Categoria<Select defaultValue="operacional"><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="operacional">Operacional</SelectItem><SelectItem value="comercial">Comercial</SelectItem><SelectItem value="tecnico">Técnico</SelectItem><SelectItem value="rh">RH</SelectItem></SelectContent></Select></label><label className="block text-xs font-medium">Tipo de acesso<Select defaultValue="sso"><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="sso">SSO integrado</SelectItem><SelectItem value="externo">Link externo</SelectItem></SelectContent></Select></label></div><label className="block text-xs font-medium">Endereço da aplicação<Input className="mt-1" placeholder="https://..." /></label><div className="rounded-md border border-primary/15 bg-accent p-3 text-xs leading-5 text-muted-foreground"><strong className="text-foreground">Vínculo corporativo:</strong> aplicações próprias usarão o e-mail corporativo único para localizar a conta já existente.</div></div> : modal === "approve" ? <div className="space-y-4 py-2"><div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-md border p-4"><span className="grid size-10 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">JP</span><div><strong className="block text-sm">João Pereira</strong><span className="text-xs text-muted-foreground">joao.pereira@empresa.com.br · Licitações</span></div></div><label className="flex items-center gap-2 text-xs"><Checkbox defaultChecked /> Confirmo que o e-mail corporativo e a área estão corretos.</label></div> : <div className="rounded-md border border-destructive/20 bg-destructive/5 p-4 text-xs leading-5 text-muted-foreground"><strong className="text-destructive">Efeito previsto:</strong> Carlos Nunes perderá acesso ao portal imediatamente. Sistemas de terceiros não permitem encerramento remoto de sessão.</div>}<DialogFooter><Button variant="outline" onClick={() => setModal(null)}>Cancelar</Button><Button variant={modal === "block" ? "destructive" : "default"} onClick={() => { setModal(null); showNotice(modal === "add" ? "Aplicação cadastrada na demonstração." : modal === "approve" ? "Cadastro aprovado na demonstração." : "Bloqueio global simulado com sucesso."); }}>{content.confirm}</Button></DialogFooter></DialogContent></Dialog>;
-}
-
-function LoginScreen({ onEnter }: { onEnter: () => void }) {
-  return <main className="grid min-h-screen bg-background lg:grid-cols-[minmax(0,1.15fr)_minmax(440px,.85fr)]"><section className="relative hidden overflow-hidden bg-hero p-12 before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-brand-gradient text-hero-foreground lg:flex lg:flex-col lg:justify-between"><div className="flex items-center gap-3"><img src={safenetMarkUrl} alt="Safenet" className="size-11" /><div><strong className="font-display block tracking-[0.3em]">SAFENET</strong><span className="text-[10px] uppercase text-hero-foreground/55">Portal corporativo</span></div></div><div className="max-w-xl"><p className="mb-3 text-xs font-bold uppercase text-hero-accent">Acesso centralizado</p><h1 className="text-5xl font-bold leading-tight">Seu trabalho começa em um só lugar.</h1><p className="mt-5 max-w-lg text-sm leading-6 text-hero-foreground/65">Acesse com segurança as ferramentas autorizadas para o seu perfil.</p></div><p className="text-xs text-hero-foreground/45">Ambiente interno · Acesso monitorado</p></section><section className="flex items-center justify-center px-5 py-10"><div className="w-full max-w-sm"><div className="mb-8 lg:hidden"><img src={safenetMarkUrl} alt="Safenet" className="size-11" /><strong className="font-display mt-3 block tracking-[0.3em]">SAFENET</strong></div><Badge variant="outline" className="mb-5 border-primary/20 bg-accent text-primary">Protótipo de apresentação</Badge><h2 className="text-3xl font-bold">Bem-vindo de volta</h2><p className="mt-2 text-sm text-muted-foreground">Use seu e-mail corporativo para acessar o portal.</p><form className="mt-8 space-y-4" onSubmit={(event) => { event.preventDefault(); onEnter(); }}><label className="block text-xs font-medium">E-mail corporativo<Input className="mt-1 h-11" type="email" defaultValue="marina.alves@empresa.com.br" /></label><label className="block text-xs font-medium">Senha<Input className="mt-1 h-11" type="password" defaultValue="demonstracao" /></label><div className="flex items-center justify-between text-xs"><label className="flex items-center gap-2"><Checkbox /> Lembrar de mim</label><button type="button" className="font-semibold text-primary">Esqueci minha senha</button></div><Button type="submit" className="h-11 w-full">Entrar no portal <ArrowRight /></Button></form><div className="mt-6 rounded-md bg-muted p-3 text-center text-[11px] leading-5 text-muted-foreground">Esta tela é apenas visual. Nenhuma credencial é validada ou armazenada.</div></div></section></main>;
 }
