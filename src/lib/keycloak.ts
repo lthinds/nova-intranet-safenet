@@ -1,6 +1,6 @@
 // Integração com o login único (Keycloak atrás de proxy OIDC).
 // O portal não tem tela de login: o proxy autentica antes e expõe os endpoints abaixo.
-import type { AppItemData } from "@/data/apps";
+
 
 export const USERINFO_URL = "/oauth2/userinfo";
 export const SIGN_OUT_URL = "/oauth2/sign_out";
@@ -17,7 +17,7 @@ export interface UserInfo {
 }
 
 /** Um app sem grupo é visível para todos; com grupo, só para quem o possui. */
-export function canSeeApp(app: Pick<AppItemData, "group" | "keycloakGroup">, groups: string[]): boolean {
+export function canSeeApp(app: { keycloakGroup?: string | undefined }, groups: string[]): boolean {
   if (!app.keycloakGroup) return true;
   const normalized = groups.map((g) => g.replace(/^\//, ""));
   return normalized.includes(app.keycloakGroup);
