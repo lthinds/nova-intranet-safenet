@@ -45,6 +45,7 @@ import {
   UserCheck,
   UserRound,
   Users,
+  UserCog,
   X,
 } from "lucide-react";
 
@@ -85,8 +86,10 @@ import {
   sortByDateDesc,
   type Announcement,
 } from "@/components/portal-communications";
+import { RolesView } from "@/components/roles-view";
+import { deleteRole, hasPermission, seedRoles, type Role } from "@/lib/roles";
 
-type View = "inicio" | "avisos" | "treinamentos" | "aplicacoes" | "colaboradores" | "acessos" | "gestao";
+type View = "inicio" | "avisos" | "treinamentos" | "aplicacoes" | "colaboradores" | "acessos" | "gestao" | "cargos";
 type Integration = "SSO integrado" | "Link externo";
 
 type AppItem = {
@@ -120,13 +123,12 @@ const apps: AppItem[] = appsData.map((a) => ({
   keycloakGroup: a.keycloakGroup,
 }));
 
-const portalRoles = ["Coordenação", "RH", "DP", "Marketing", "Monitoramento", "Operacional", "Frota", "Comercial", "Licitações", "Técnico"];
 
 type Person = { name: string; email: string; area: string; roles: string[]; status: string; initials: string };
 
 const seedPeople: Person[] = [
   { name: "Marina Alves", email: "marina.alves@empresa.com.br", area: "Monitoramento", roles: ["Coordenação", "Monitoramento"], status: "Ativo", initials: "MA" },
-  { name: "Rafael Costa", email: "rafael.costa@empresa.com.br", area: "Operacional", roles: ["Operacional", "Frota"], status: "Ativo", initials: "RC" },
+  { name: "Rafael Costa", email: "rafael.costa@empresa.com.br", area: "Operacional", roles: ["Operacional", "Monitoramento"], status: "Ativo", initials: "RC" },
   { name: "Beatriz Lima", email: "beatriz.lima@empresa.com.br", area: "Comercial", roles: ["Comercial", "Licitações", "Marketing"], status: "Ativo", initials: "BL" },
   { name: "Carlos Nunes", email: "carlos.nunes@empresa.com.br", area: "Técnico", roles: ["Técnico"], status: "Bloqueado", initials: "CN" },
   { name: "João Pereira", email: "joao.pereira@empresa.com.br", area: "Licitações", roles: ["Licitações"], status: "Pendente", initials: "JP" },
@@ -140,6 +142,7 @@ const navItems: Array<{ id: View; label: string; icon: ComponentType<{ className
   { id: "colaboradores", label: "Colaboradores", icon: Users },
   { id: "acessos", label: "Acessos", icon: ShieldEllipsis },
   { id: "gestao", label: "Gestão de aplicações", icon: Settings },
+  { id: "cargos", label: "Cargos e permissões", icon: UserCog },
 ];
 
 const categories = ["Todos", ...deriveGroups(appsData)];
@@ -168,6 +171,10 @@ export function PortalPrototype() {
   const [openNotice, setOpenNotice] = useState<Announcement | null>(null);
   const [editingNotice, setEditingNotice] = useState<Announcement | null>(null);
   const [dark, setDark] = useState(false);
+  const [roles, setRoles] = useState<Role[]>(seedRoles);
+  const [people, setPeople] = useState<Person[]>(seedPeople);
+  const canManageRoles = hasPermission(currentUser.roles, roles, "gerenciar_cargos");
+  useEffect(() => { if (view === "cargos" && !canManageRoles) setView("inicio"); }, [view, canManageRoles]);
 
   useEffect(() => {
     setDark(window.localStorage.getItem("safenet-theme") === "dark");
@@ -218,6 +225,7 @@ export function PortalPrototype() {
     aplicacoes: { title: "Aplicações", description: "Acesse as ferramentas disponíveis para o seu perfil." },
     colaboradores: { title: "Colaboradores", description: "Aprove cadastros e acompanhe a situação das contas." },
     acessos: { title: "Gestão de acessos", description: "Defina quais ferramentas cada colaborador visualiza no portal." },
+    cargos: { title: "Cargos e permissões", description: "Crie cargos e defina o que cada um vê e administra no portal." },
     gestao: { title: "Gestão de aplicações", description: "Cadastre ferramentas e escolha como cada acesso será realizado." },
   };
 
@@ -235,7 +243,7 @@ export function PortalPrototype() {
         </div>
         <nav className="flex-1 space-y-1 px-3 py-6" aria-label="Navegação principal">
           <p className="px-3 pb-2 text-[10px] font-bold uppercase text-sidebar-foreground/45">Portal</p>
-          {navItems.map((item) => {
+          {navItems.filter((item) => item.id !== "cargos" || canManageRoles).map((item) => {
             const Icon = item.icon;
             return <Button key={item.id} variant="ghost" onClick={() => navigate(item.id)} className={cn("h-11 w-full justify-start px-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", view === item.id && "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm")}><Icon />{item.label}{item.id === "colaboradores" && <span className="ml-auto grid size-5 place-items-center rounded-full bg-warning text-warning-foreground text-[10px] font-bold">1</span>}</Button>;
           })}
@@ -275,7 +283,8 @@ export function PortalPrototype() {
           {view === "avisos" && <NoticesView items={announcements} now={now} acknowledged={acknowledged} onCreate={() => setCreateNotice(true)} onOpen={setOpenNotice} />}
           {view === "treinamentos" && <TrainingsView courses={courses} now={now} />}
           {view === "aplicacoes" && <ApplicationsView apps={filteredApps} query={query} setQuery={setQuery} category={category} setCategory={setCategory} onSelect={setSelectedApp} />}
-          {view === "colaboradores" && <PeopleView setModal={setModal} showNotice={showNotice} />}
+          {view === "colaboradores" && <PeopleView people={people} setPeople={setPeople} roleNames={roles.map((r) => r.name)} setModal={setModal} showNotice={showNotice} />}
+          {view === "cargos" && canManageRoles && <RolesView roles={roles} people={people} apps={apps.map((a) => ({ id: a.id, name: a.name }))} onSave={(role, prev) => { setRoles((list) => list.some((r) => r.id === role.id) ? list.map((r) => (r.id === role.id ? role : r)) : [...list, role]); if (prev && prev !== role.name) setPeople((list) => list.map((p) => ({ ...p, roles: p.roles.map((n) => (n === prev ? role.name : n)) }))); showNotice(prev ? `Cargo ${role.name} atualizado.` : `Cargo ${role.name} criado.`); }} onDelete={(id) => { const name = roles.find((r) => r.id === id)?.name; const res = deleteRole(id, roles, people); setRoles(res.roles); setPeople(res.people); showNotice(`Cargo ${name} excluído.`); }} />}
           {view === "acessos" && <AccessView access={access} setAccess={setAccess} showNotice={showNotice} />}
           {view === "gestao" && <ManagementView onSelect={setSelectedApp} />}
         </main>
@@ -284,7 +293,7 @@ export function PortalPrototype() {
       <ApplicationDialog app={selectedApp} onClose={() => setSelectedApp(null)} showNotice={showNotice} />
       <ActionDialog modal={modal} setModal={setModal} showNotice={showNotice} />
       <NoticeDetailDialog item={openNotice} onClose={() => setOpenNotice(null)} onEdit={(item) => { setOpenNotice(null); setEditingNotice(item); setCreateNotice(true); }} />
-      <CreateNoticeDialog roles={portalRoles} directory={seedPeople} open={createNotice} editing={editingNotice} onClose={() => { setCreateNotice(false); setEditingNotice(null); }} onUpdate={(item) => { setAnnouncements((list) => list.map((a) => (a.id === item.id ? item : a))); setCreateNotice(false); setEditingNotice(null); showNotice("Aviso atualizado."); }} onCreate={(data, expiration, customDate) => {
+      <CreateNoticeDialog roles={roles.map((r) => r.name)} directory={people} open={createNotice} editing={editingNotice} onClose={() => { setCreateNotice(false); setEditingNotice(null); }} onUpdate={(item) => { setAnnouncements((list) => list.map((a) => (a.id === item.id ? item : a))); setCreateNotice(false); setEditingNotice(null); showNotice("Aviso atualizado."); }} onCreate={(data, expiration, customDate) => {
         const published = new Date();
         setAnnouncements((list) => [{ ...data, id: `n${published.getTime()}`, publishedAt: published.toISOString(), expiresAt: computeExpiration(published, expiration, customDate) }, ...list]);
         setCreateNotice(false);
@@ -324,13 +333,12 @@ function ApplicationsView({ apps: visibleApps, query, setQuery, category, setCat
   </div>;
 }
 
-function PeopleView({ setModal, showNotice }: { setModal: (value: "approve" | "block" | null) => void; showNotice: (message: string) => void }) {
-  const [people, setPeople] = useState<Person[]>(seedPeople);
+function PeopleView({ people, setPeople, roleNames, setModal, showNotice }: { people: Person[]; setPeople: React.Dispatch<React.SetStateAction<Person[]>>; roleNames: string[]; setModal: (value: "approve" | "block" | null) => void; showNotice: (message: string) => void }) {
   const [editing, setEditing] = useState<Person | null>(null);
   const [draftRoles, setDraftRoles] = useState<string[]>([]);
   const toggle = (r: string) => setDraftRoles((list) => (list.includes(r) ? list.filter((x) => x !== r) : [...list, r]));
   return <div className="space-y-5">
-    {editing && <Dialog open onOpenChange={(o) => !o && setEditing(null)}><DialogContent className="max-w-lg"><DialogHeader><DialogTitle>Funções de {editing.name}</DialogTitle><DialogDescription>Um colaborador pode ter várias funções. Ele verá todas as áreas do portal liberadas para qualquer uma delas. As permissões dentro de cada sistema continuam sendo definidas no próprio sistema.</DialogDescription></DialogHeader><div className="grid grid-cols-2 gap-2">{portalRoles.map((r) => <label key={r} className={cn("flex items-center gap-2 rounded-md border p-3 text-sm", draftRoles.includes(r) && "border-primary bg-accent")}><Checkbox checked={draftRoles.includes(r)} onCheckedChange={() => toggle(r)} />{r}</label>)}</div><DialogFooter><Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button><Button disabled={!draftRoles.length} onClick={() => { setPeople((list) => list.map((p) => (p.email === editing.email ? { ...p, roles: draftRoles } : p))); showNotice(`Funções de ${editing.name} atualizadas.`); setEditing(null); }}>Salvar funções</Button></DialogFooter></DialogContent></Dialog>}
+    {editing && <Dialog open onOpenChange={(o) => !o && setEditing(null)}><DialogContent className="max-w-lg"><DialogHeader><DialogTitle>Funções de {editing.name}</DialogTitle><DialogDescription>Um colaborador pode ter várias funções. Ele verá todas as áreas do portal liberadas para qualquer uma delas. As permissões dentro de cada sistema continuam sendo definidas no próprio sistema.</DialogDescription></DialogHeader><div className="grid grid-cols-2 gap-2">{roleNames.map((r) => <label key={r} className={cn("flex items-center gap-2 rounded-md border p-3 text-sm", draftRoles.includes(r) && "border-primary bg-accent")}><Checkbox checked={draftRoles.includes(r)} onCheckedChange={() => toggle(r)} />{r}</label>)}</div><DialogFooter><Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button><Button disabled={!draftRoles.length} onClick={() => { setPeople((list) => list.map((p) => (p.email === editing.email ? { ...p, roles: draftRoles } : p))); showNotice(`Funções de ${editing.name} atualizadas.`); setEditing(null); }}>Salvar funções</Button></DialogFooter></DialogContent></Dialog>}
     <section className="rounded-lg border border-warning/25 bg-warning-soft p-4"><div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-md bg-warning text-warning-foreground"><UserCheck className="size-5" /></span><div className="min-w-0"><strong className="text-sm">1 cadastro aguarda aprovação</strong><p className="mt-0.5 text-xs text-muted-foreground">Revise os dados antes de liberar o acesso ao portal.</p></div><Button size="sm" onClick={() => setModal("approve")}>Revisar</Button></div></section>
     <div className="grid gap-3 sm:grid-cols-3"><Metric value="48" label="Colaboradores ativos" icon={Users} /><Metric value="1" label="Aguardando aprovação" icon={Clock3} /><Metric value="2" label="Contas bloqueadas" icon={LockKeyhole} /></div>
     <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
