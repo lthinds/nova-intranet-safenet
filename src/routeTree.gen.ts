@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AutoavaliacaoRouteImport } from './routes/autoavaliacao'
+import { Route as CandidaturaRouteImport } from './routes/candidatura'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AutoavaliacaoRoute = AutoavaliacaoRouteImport.update({
+  id: '/autoavaliacao',
+  path: '/autoavaliacao',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CandidaturaRoute = CandidaturaRouteImport.update({
+  id: '/candidatura',
+  path: '/candidatura',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/autoavaliacao': typeof AutoavaliacaoRoute
+  '/candidatura': typeof CandidaturaRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/autoavaliacao': typeof AutoavaliacaoRoute
+  '/candidatura': typeof CandidaturaRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/autoavaliacao': typeof AutoavaliacaoRoute
+  '/candidatura': typeof CandidaturaRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/autoavaliacao' | '/candidatura'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/autoavaliacao' | '/candidatura'
+  id: '__root__' | '/' | '/autoavaliacao' | '/candidatura'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AutoavaliacaoRoute: typeof AutoavaliacaoRoute
+  CandidaturaRoute: typeof CandidaturaRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/autoavaliacao': {
+      id: '/autoavaliacao'
+      path: '/autoavaliacao'
+      fullPath: '/autoavaliacao'
+      preLoaderRoute: typeof AutoavaliacaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/candidatura': {
+      id: '/candidatura'
+      path: '/candidatura'
+      fullPath: '/candidatura'
+      preLoaderRoute: typeof CandidaturaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AutoavaliacaoRoute: AutoavaliacaoRoute,
+  CandidaturaRoute: CandidaturaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
