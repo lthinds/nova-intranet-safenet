@@ -14,3 +14,16 @@ describe("deriveGroups", () => {
     expect(deriveGroups(list)).toEqual(["Operacional", "Financeiro", "Outros"]);
   });
 });
+
+import { canSeeApp } from "@/lib/keycloak";
+describe("visibilidade por grupo do Keycloak", () => {
+  it("esconde app com grupo GS_App que o usuário não tem", () => {
+    expect(canSeeApp({ keycloakGroup: "GS_App_frota" }, ["GS_App_pregoes"])).toBe(false);
+  });
+  it("mostra app quando o usuário tem o grupo (com ou sem barra inicial)", () => {
+    expect(canSeeApp({ keycloakGroup: "GS_App_frota" }, ["/GS_App_frota"])).toBe(true);
+  });
+  it("app sem grupo é visível para todos", () => {
+    expect(canSeeApp({}, [])).toBe(true);
+  });
+});

@@ -10,3 +10,6 @@
 <!-- LOVABLE:END -->
 
 - Keep the presentation prototype as one client-side experience with local mock state, because this phase explicitly excludes persistence and real authentication.
+- Authentication is delegated entirely to Keycloak behind an OIDC proxy: the portal reads /oauth2/userinfo, signs out via /oauth2/sign_out, has no login screen, and filters app cards by GS_App_<id> groups (src/lib/keycloak.ts), because production login already exists.
+- /candidatura and /autoavaliacao are public routes without login, because HR uses them externally.
+- Trainings are a manually maintained list in src/data/trainings.ts, because the old spreadsheet feed is frozen.

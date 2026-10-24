@@ -99,7 +99,7 @@ type AppItem = {
   status: "Disponível" | "Em breve";
   icon: ComponentType<{ className?: string }>;
   recent?: boolean;
-  keycloakGroup?: string;
+  keycloakGroup?: string | undefined;
 };
 
 const iconMap: Record<string, ComponentType<{ className?: string }>> = {
