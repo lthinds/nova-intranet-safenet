@@ -8,3 +8,4 @@
 - [x] Avisos obrigatórios em tela cheia após o login, aba Avisos por data e expiração definida na criação
 - [x] Área de Treinamentos no formato da intranet atual
 - [ ] Ligar Treinamentos à fonte oficial — aguardando confirmação do gestor
+- [x] Cargos e permissões: criar, editar, excluir (dupla confirmação), restrito à Coordenação
