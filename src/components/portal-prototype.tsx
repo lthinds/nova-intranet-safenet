@@ -145,6 +145,17 @@ const navItems: Array<{ id: View; label: string; icon: ComponentType<{ className
   { id: "cargos", label: "Cargos e permissões", icon: UserCog },
 ];
 
+type ModalState = null | { kind: "add" } | { kind: "approve" | "block" | "unblock"; email: string };
+
+/** Abas visíveis conforme as permissões do portal somadas de todos os cargos do usuário. */
+export function viewsAllowed(p: { canManageRoles: boolean; canManagePeople: boolean; canManageApps: boolean }): View[] {
+  const v: View[] = ["inicio", "avisos", "aplicacoes", "treinamentos"];
+  if (p.canManagePeople) v.push("colaboradores", "acessos");
+  if (p.canManageApps) v.push("gestao");
+  if (p.canManageRoles) v.push("cargos");
+  return v;
+}
+
 const categories = ["Todos", ...deriveGroups(appsData)];
 
 export function PortalPrototype() {
@@ -152,7 +163,7 @@ export function PortalPrototype() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todos");
   const [selectedApp, setSelectedApp] = useState<AppItem | null>(null);
-  const [modal, setModal] = useState<"add" | "approve" | "block" | null>(null);
+  const [modal, setModal] = useState<ModalState>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [now] = useState(() => new Date());
@@ -174,7 +185,13 @@ export function PortalPrototype() {
   const [roles, setRoles] = useState<Role[]>(seedRoles);
   const [people, setPeople] = useState<Person[]>(seedPeople);
   const canManageRoles = hasPermission(currentUser.roles, roles, "gerenciar_cargos");
-  useEffect(() => { if (view === "cargos" && !canManageRoles) setView("inicio"); }, [view, canManageRoles]);
+  const canPublish = hasPermission(currentUser.roles, roles, "publicar_avisos");
+  const canManagePeople = hasPermission(currentUser.roles, roles, "gerenciar_colaboradores");
+  const canManageApps = hasPermission(currentUser.roles, roles, "gerenciar_aplicacoes");
+  const allowedViews = viewsAllowed({ canManageRoles, canManagePeople, canManageApps });
+  useEffect(() => { if (!allowedViews.includes(view)) setView("inicio"); }, [view, allowedViews]);
+  const pendingCount = people.filter((p) => p.status === "Pendente").length;
+  const [launching, setLaunching] = useState<AppItem | null>(null);
 
   useEffect(() => {
     setDark(window.localStorage.getItem("safenet-theme") === "dark");
@@ -243,9 +260,9 @@ export function PortalPrototype() {
         </div>
         <nav className="flex-1 space-y-1 px-3 py-6" aria-label="Navegação principal">
           <p className="px-3 pb-2 text-[10px] font-bold uppercase text-sidebar-foreground/45">Portal</p>
-          {navItems.filter((item) => item.id !== "cargos" || canManageRoles).map((item) => {
+          {navItems.filter((item) => allowedViews.includes(item.id)).map((item) => {
             const Icon = item.icon;
-            return <Button key={item.id} variant="ghost" onClick={() => navigate(item.id)} className={cn("h-11 w-full justify-start px-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", view === item.id && "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm")}><Icon />{item.label}{item.id === "colaboradores" && <span className="ml-auto grid size-5 place-items-center rounded-full bg-warning text-warning-foreground text-[10px] font-bold">1</span>}</Button>;
+            return <Button key={item.id} variant="ghost" onClick={() => navigate(item.id)} className={cn("h-11 w-full justify-start px-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", view === item.id && "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm")}><Icon />{item.label}{item.id === "colaboradores" && pendingCount > 0 && <span className="ml-auto grid size-5 place-items-center rounded-full bg-warning text-warning-foreground text-[10px] font-bold">{pendingCount}</span>}</Button>;
           })}
         </nav>
         <div className="border-t border-sidebar-border p-3">
@@ -276,23 +293,30 @@ export function PortalPrototype() {
         <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
           <div className="mb-7 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
             <div className="min-w-0"><p className="mb-2 text-[10px] font-bold uppercase text-primary">Central de aplicações</p><h1 className="font-display text-2xl font-bold md:text-[30px]">{currentTitle.title}</h1><p className="mt-1 text-sm text-muted-foreground">{currentTitle.description}</p></div>
-            {view === "gestao" && <Button onClick={() => setModal("add")}><Plus /> Nova aplicação</Button>}
+            {view === "gestao" && canManageApps && <Button onClick={() => setModal({ kind: "add" })}><Plus /> Nova aplicação</Button>}
           </div>
 
           {view === "inicio" && <HomeView apps={visibleApps} navigate={navigate} onSelect={setSelectedApp} latest={sortByDateDesc(announcements).filter((item) => isActive(item, now)).slice(0, 2)} onOpenNotice={setOpenNotice} />}
-          {view === "avisos" && <NoticesView items={announcements} now={now} acknowledged={acknowledged} onCreate={() => setCreateNotice(true)} onOpen={setOpenNotice} />}
+          {view === "avisos" && <NoticesView items={announcements} now={now} acknowledged={acknowledged} onCreate={canPublish ? () => setCreateNotice(true) : undefined} onOpen={setOpenNotice} />}
           {view === "treinamentos" && <TrainingsView courses={courses} now={now} />}
           {view === "aplicacoes" && <ApplicationsView apps={filteredApps} query={query} setQuery={setQuery} category={category} setCategory={setCategory} onSelect={setSelectedApp} />}
-          {view === "colaboradores" && <PeopleView people={people} setPeople={setPeople} roleNames={roles.map((r) => r.name)} setModal={setModal} showNotice={showNotice} />}
+          {view === "colaboradores" && canManagePeople && <PeopleView people={people} setPeople={setPeople} roleNames={roles.map((r) => r.name)} setModal={setModal} showNotice={showNotice} />}
           {view === "cargos" && canManageRoles && <RolesView roles={roles} people={people} apps={apps.map((a) => ({ id: a.id, name: a.name }))} onSave={(role, prev) => { setRoles((list) => list.some((r) => r.id === role.id) ? list.map((r) => (r.id === role.id ? role : r)) : [...list, role]); if (prev && prev !== role.name) setPeople((list) => list.map((p) => ({ ...p, roles: p.roles.map((n) => (n === prev ? role.name : n)) }))); showNotice(prev ? `Cargo ${role.name} atualizado.` : `Cargo ${role.name} criado.`); }} onDelete={(id) => { const name = roles.find((r) => r.id === id)?.name; const res = deleteRole(id, roles, people); setRoles(res.roles); setPeople(res.people); showNotice(`Cargo ${name} excluído.`); }} />}
-          {view === "acessos" && <AccessView access={access} setAccess={setAccess} showNotice={showNotice} />}
-          {view === "gestao" && <ManagementView onSelect={setSelectedApp} />}
+          {view === "acessos" && canManagePeople && <AccessView access={access} setAccess={setAccess} showNotice={showNotice} />}
+          {view === "gestao" && canManageApps && <ManagementView onSelect={setSelectedApp} />}
         </main>
       </div>
 
-      <ApplicationDialog app={selectedApp} onClose={() => setSelectedApp(null)} showNotice={showNotice} />
-      <ActionDialog modal={modal} setModal={setModal} showNotice={showNotice} />
-      <NoticeDetailDialog item={openNotice} onClose={() => setOpenNotice(null)} onEdit={(item) => { setOpenNotice(null); setEditingNotice(item); setCreateNotice(true); }} />
+      <ApplicationDialog app={selectedApp} onClose={() => setSelectedApp(null)} onLaunch={setLaunching} />
+      <LaunchOverlay app={launching} onDone={() => setLaunching(null)} />
+      <ActionDialog modal={modal} setModal={setModal} people={people} onConfirm={(kind, email) => {
+        const target = people.find((p) => p.email === email);
+        if (!target) return;
+        if (kind === "approve") { setPeople((list) => list.map((p) => (p.email === email ? { ...p, status: "Ativo" } : p))); showNotice(`Cadastro de ${target.name} aprovado. O acesso ao portal foi liberado.`); }
+        if (kind === "block") { setPeople((list) => list.map((p) => (p.email === email ? { ...p, status: "Bloqueado" } : p))); showNotice(`${target.name} bloqueado. Login impedido e sessões encerradas nos sistemas próprios.`); }
+        if (kind === "unblock") { setPeople((list) => list.map((p) => (p.email === email ? { ...p, status: "Ativo" } : p))); showNotice(`${target.name} desbloqueado.`); }
+      }} showNotice={showNotice} />
+      <NoticeDetailDialog item={openNotice} onClose={() => setOpenNotice(null)} onEdit={canPublish ? (item) => { setOpenNotice(null); setEditingNotice(item); setCreateNotice(true); } : undefined} />
       <CreateNoticeDialog roles={roles.map((r) => r.name)} directory={people} open={createNotice} editing={editingNotice} onClose={() => { setCreateNotice(false); setEditingNotice(null); }} onUpdate={(item) => { setAnnouncements((list) => list.map((a) => (a.id === item.id ? item : a))); setCreateNotice(false); setEditingNotice(null); showNotice("Aviso atualizado."); }} onCreate={(data, expiration, customDate) => {
         const published = new Date();
         setAnnouncements((list) => [{ ...data, id: `n${published.getTime()}`, publishedAt: published.toISOString(), expiresAt: computeExpiration(published, expiration, customDate) }, ...list]);
@@ -333,17 +357,17 @@ function ApplicationsView({ apps: visibleApps, query, setQuery, category, setCat
   </div>;
 }
 
-function PeopleView({ people, setPeople, roleNames, setModal, showNotice }: { people: Person[]; setPeople: React.Dispatch<React.SetStateAction<Person[]>>; roleNames: string[]; setModal: (value: "approve" | "block" | null) => void; showNotice: (message: string) => void }) {
+function PeopleView({ people, setPeople, roleNames, setModal, showNotice }: { people: Person[]; setPeople: React.Dispatch<React.SetStateAction<Person[]>>; roleNames: string[]; setModal: (value: ModalState) => void; showNotice: (message: string) => void }) {
   const [editing, setEditing] = useState<Person | null>(null);
   const [draftRoles, setDraftRoles] = useState<string[]>([]);
   const toggle = (r: string) => setDraftRoles((list) => (list.includes(r) ? list.filter((x) => x !== r) : [...list, r]));
   return <div className="space-y-5">
     {editing && <Dialog open onOpenChange={(o) => !o && setEditing(null)}><DialogContent className="max-w-lg"><DialogHeader><DialogTitle>Funções de {editing.name}</DialogTitle><DialogDescription>Um colaborador pode ter várias funções. Ele verá todas as áreas do portal liberadas para qualquer uma delas. As permissões dentro de cada sistema continuam sendo definidas no próprio sistema.</DialogDescription></DialogHeader><div className="grid grid-cols-2 gap-2">{roleNames.map((r) => <label key={r} className={cn("flex items-center gap-2 rounded-md border p-3 text-sm", draftRoles.includes(r) && "border-primary bg-accent")}><Checkbox checked={draftRoles.includes(r)} onCheckedChange={() => toggle(r)} />{r}</label>)}</div><DialogFooter><Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button><Button disabled={!draftRoles.length} onClick={() => { setPeople((list) => list.map((p) => (p.email === editing.email ? { ...p, roles: draftRoles } : p))); showNotice(`Funções de ${editing.name} atualizadas.`); setEditing(null); }}>Salvar funções</Button></DialogFooter></DialogContent></Dialog>}
-    <section className="rounded-lg border border-warning/25 bg-warning-soft p-4"><div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-md bg-warning text-warning-foreground"><UserCheck className="size-5" /></span><div className="min-w-0"><strong className="text-sm">1 cadastro aguarda aprovação</strong><p className="mt-0.5 text-xs text-muted-foreground">Revise os dados antes de liberar o acesso ao portal.</p></div><Button size="sm" onClick={() => setModal("approve")}>Revisar</Button></div></section>
-    <div className="grid gap-3 sm:grid-cols-3"><Metric value="48" label="Colaboradores ativos" icon={Users} /><Metric value="1" label="Aguardando aprovação" icon={Clock3} /><Metric value="2" label="Contas bloqueadas" icon={LockKeyhole} /></div>
+    <section className="rounded-lg border border-warning/25 bg-warning-soft p-4"><div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-md bg-warning text-warning-foreground"><UserCheck className="size-5" /></span><div className="min-w-0"><strong className="text-sm">{people.filter((p) => p.status === "Pendente").length ? `${people.filter((p) => p.status === "Pendente").length} cadastro(s) aguardando aprovação` : "Nenhum cadastro pendente"}</strong><p className="mt-0.5 text-xs text-muted-foreground">Revise os dados antes de liberar o acesso ao portal.</p></div>{people.find((p) => p.status === "Pendente") && <Button size="sm" onClick={() => setModal({ kind: "approve", email: people.find((p) => p.status === "Pendente")!.email })}>Revisar</Button>}</div></section>
+    <div className="grid gap-3 sm:grid-cols-3"><Metric value={String(people.filter((p) => p.status === "Ativo").length)} label="Colaboradores ativos" icon={Users} /><Metric value={String(people.filter((p) => p.status === "Pendente").length)} label="Aguardando aprovação" icon={Clock3} /><Metric value={String(people.filter((p) => p.status === "Bloqueado").length)} label="Contas bloqueadas" icon={LockKeyhole} /></div>
     <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
       <div className="grid gap-3 border-b p-4 md:grid-cols-[minmax(0,1fr)_180px_auto]"><label className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input placeholder="Buscar nome ou e-mail..." className="pl-9" /></label><Select defaultValue="todos"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todos os status</SelectItem><SelectItem value="ativo">Ativos</SelectItem><SelectItem value="pendente">Pendentes</SelectItem><SelectItem value="bloqueado">Bloqueados</SelectItem></SelectContent></Select><Button variant="outline"><SlidersHorizontal /> Filtrar</Button></div>
-      <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead className="bg-muted/60 text-muted-foreground"><tr><th className="px-5 py-3 font-medium">Colaborador</th><th className="px-4 py-3 font-medium">Área</th><th className="px-4 py-3 font-medium">Funções no portal</th><th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3 text-right font-medium">Ações</th></tr></thead><tbody>{people.map((person) => <tr key={person.email} className="border-t hover:bg-muted/30"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-full bg-muted font-bold text-primary">{person.initials}</span><div><strong className="block text-sm">{person.name}</strong><span className="text-muted-foreground">{person.email}</span></div></div></td><td className="px-4 py-4">{person.area}</td><td className="px-4 py-4"><div className="flex max-w-64 flex-wrap gap-1">{person.roles.map((r) => <Badge key={r} variant="outline">{r}</Badge>)}</div></td><td className="px-4 py-4"><StatusBadge status={person.status} /></td><td className="px-4 py-4"><div className="flex justify-end gap-1">{person.status === "Pendente" ? <Button size="sm" onClick={() => setModal("approve")}>Aprovar</Button> : <><Button variant="ghost" size="icon" onClick={() => { setEditing(person); setDraftRoles(person.roles); }} aria-label={`Editar ${person.name}`}><Settings /></Button><Button variant="ghost" size="icon" onClick={() => setModal("block")} aria-label={`Mais ações para ${person.name}`}><MoreHorizontal /></Button></>}</div></td></tr>)}</tbody></table></div>
+      <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead className="bg-muted/60 text-muted-foreground"><tr><th className="px-5 py-3 font-medium">Colaborador</th><th className="px-4 py-3 font-medium">Área</th><th className="px-4 py-3 font-medium">Funções no portal</th><th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3 text-right font-medium">Ações</th></tr></thead><tbody>{people.map((person) => <tr key={person.email} className="border-t hover:bg-muted/30"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-full bg-muted font-bold text-primary">{person.initials}</span><div><strong className="block text-sm">{person.name}</strong><span className="text-muted-foreground">{person.email}</span></div></div></td><td className="px-4 py-4">{person.area}</td><td className="px-4 py-4"><div className="flex max-w-64 flex-wrap gap-1">{person.roles.map((r) => <Badge key={r} variant="outline">{r}</Badge>)}</div></td><td className="px-4 py-4"><StatusBadge status={person.status} /></td><td className="px-4 py-4"><div className="flex justify-end gap-1">{person.status === "Pendente" ? <Button size="sm" onClick={() => setModal({ kind: "approve", email: person.email })}>Aprovar</Button> : <><Button variant="ghost" size="icon" onClick={() => { setEditing(person); setDraftRoles(person.roles); }} aria-label={`Editar ${person.name}`}><Settings /></Button>{person.status === "Bloqueado" ? <Button variant="outline" size="sm" onClick={() => setModal({ kind: "unblock", email: person.email })}>Desbloquear</Button> : <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setModal({ kind: "block", email: person.email })} aria-label={`Bloquear ${person.name}`}><LockKeyhole /></Button>}</>}</div></td></tr>)}</tbody></table></div>
     </section>
   </div>;
 }
@@ -388,18 +412,43 @@ function FlowStep({ number, title, text }: { number: string; title: string; text
   return <div className="flex gap-3"><span className="text-2xl font-bold text-primary/25">{number}</span><div><strong className="text-xs">{title}</strong><p className="mt-1 text-xs leading-5 text-muted-foreground">{text}</p></div></div>;
 }
 
-function ApplicationDialog({ app, onClose, showNotice }: { app: AppItem | null; onClose: () => void; showNotice: (message: string) => void }) {
+function ApplicationDialog({ app, onClose, onLaunch }: { app: AppItem | null; onClose: () => void; onLaunch: (app: AppItem) => void }) {
   if (!app) return null;
   const Icon = app.icon;
-  return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent className="max-w-xl"><DialogHeader><div className="mb-3 flex items-center gap-3"><span className="grid size-12 place-items-center rounded-md bg-accent text-primary"><Icon className="size-6" /></span><div><DialogTitle>{app.name}</DialogTitle><p className="mt-1 text-xs text-muted-foreground">{app.category}</p></div></div><DialogDescription>{app.description}</DialogDescription></DialogHeader><div className="space-y-3 py-2"><div className="grid grid-cols-2 gap-3"><div className="rounded-md border p-3"><span className="text-[10px] uppercase text-muted-foreground">Forma de acesso</span><div className="mt-2"><IntegrationBadge type={app.integration} /></div></div><div className="rounded-md border p-3"><span className="text-[10px] uppercase text-muted-foreground">Disponibilidade</span><div className="mt-2"><StatusBadge status={app.status} /></div></div></div><div className="rounded-md bg-muted/60 p-3 text-xs leading-5 text-muted-foreground">{app.integration === "SSO integrado" ? "Na versão final, seu e-mail corporativo vinculará a conta existente e o acesso acontecerá pelo portal. As permissões internas permanecerão neste sistema." : "Esta aplicação é de terceiros. O portal abrirá o endereço externo e o acesso poderá solicitar credenciais próprias."}</div></div><DialogFooter><Button variant="outline" onClick={onClose}>Fechar</Button><Button disabled={app.status === "Em breve"} onClick={() => { onClose(); showNotice(app.integration === "SSO integrado" ? "Abertura com SSO simulada no protótipo." : "Abertura do link externo simulada no protótipo."); }}>{app.integration === "SSO integrado" ? <KeyRound /> : <ExternalLink />}{app.status === "Em breve" ? "Indisponível" : "Abrir aplicação"}</Button></DialogFooter></DialogContent></Dialog>;
+  const pending = !app.url || app.url === "#";
+  const unavailable = app.status === "Em breve" || pending;
+  return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent className="max-w-xl"><DialogHeader><div className="mb-3 flex items-center gap-3"><span className="grid size-12 place-items-center rounded-md bg-accent text-primary"><Icon className="size-6" /></span><div><DialogTitle>{app.name}</DialogTitle><p className="mt-1 text-xs text-muted-foreground">{app.category}</p></div></div><DialogDescription>{app.description}</DialogDescription></DialogHeader><div className="space-y-3 py-2"><div className="grid grid-cols-2 gap-3"><div className="rounded-md border p-3"><span className="text-[10px] uppercase text-muted-foreground">Forma de acesso</span><div className="mt-2"><IntegrationBadge type={app.integration} /></div></div><div className="rounded-md border p-3"><span className="text-[10px] uppercase text-muted-foreground">Disponibilidade</span><div className="mt-2"><StatusBadge status={pending ? "Endereço pendente" : app.status} /></div></div></div><div className="rounded-md bg-muted/60 p-3 text-xs leading-5 text-muted-foreground">{app.integration === "SSO integrado" ? "Você entra com o login único da empresa. As permissões internas continuam definidas neste sistema." : "Ferramenta de terceiros: abre em nova aba e pode pedir login próprio."}</div></div><DialogFooter><Button variant="outline" onClick={onClose}>Fechar</Button><Button disabled={unavailable} onClick={() => { onClose(); onLaunch(app); }}>{app.integration === "SSO integrado" ? <KeyRound /> : <ExternalLink />}{unavailable ? "Indisponível" : "Abrir aplicação"}</Button></DialogFooter></DialogContent></Dialog>;
 }
 
-function ActionDialog({ modal, setModal, showNotice }: { modal: "add" | "approve" | "block" | null; setModal: (value: null) => void; showNotice: (message: string) => void }) {
+function LaunchOverlay({ app, onDone }: { app: AppItem | null; onDone: () => void }) {
+  useEffect(() => {
+    if (!app) return;
+    const t = window.setTimeout(() => {
+      if (app.integration === "Link externo") window.open(app.url, "_blank", "noopener,noreferrer");
+      else window.location.assign(app.url);
+      onDone();
+    }, 1400);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [app]);
+  if (!app) return null;
+  const Icon = app.icon;
+  const sso = app.integration === "SSO integrado";
+  return <div role="status" className="fixed inset-0 z-[80] grid place-items-center bg-overlay backdrop-blur-sm"><div className="w-[min(92vw,380px)] rounded-lg border bg-card p-7 text-center shadow-2xl"><span className="mx-auto grid size-14 place-items-center rounded-md bg-accent text-primary"><Icon className="size-7" /></span><h2 className="mt-4 font-display text-lg font-bold">Abrindo {app.name}</h2><p className="mt-1 text-xs text-muted-foreground">{sso ? "Validando seu login único…" : "Abrindo em uma nova aba…"}</p><div className="mt-5 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full w-1/2 animate-pulse rounded-full bg-primary" /></div><Button variant="ghost" size="sm" className="mt-4" onClick={onDone}>Cancelar</Button></div></div>;
+}
+
+function ActionDialog({ modal, setModal, people, onConfirm, showNotice }: { modal: ModalState; setModal: (value: ModalState) => void; people: Person[]; onConfirm: (kind: "approve" | "block" | "unblock", email: string) => void; showNotice: (message: string) => void }) {
   if (!modal) return null;
+  const person = modal.kind !== "add" ? people.find((p) => p.email === modal.email) : undefined;
   const content = {
     add: { title: "Cadastrar nova aplicação", description: "Defina como a ferramenta aparecerá no portal.", confirm: "Cadastrar aplicação" },
-    approve: { title: "Aprovar novo colaborador", description: "Revise os dados antes de liberar a conta de João Pereira.", confirm: "Aprovar cadastro" },
-    block: { title: "Bloquear colaborador", description: "Esta ação impedirá novos acessos e, na versão final, encerrará as sessões nos sistemas próprios integrados.", confirm: "Confirmar bloqueio" },
-  }[modal];
-  return <Dialog open onOpenChange={(open) => !open && setModal(null)}><DialogContent><DialogHeader><DialogTitle>{content.title}</DialogTitle><DialogDescription>{content.description}</DialogDescription></DialogHeader>{modal === "add" ? <div className="space-y-4 py-2"><label className="block text-xs font-medium">Nome da aplicação<Input className="mt-1" placeholder="Ex.: Central de CFTV" /></label><div className="grid grid-cols-2 gap-3"><label className="block text-xs font-medium">Categoria<Select defaultValue="operacional"><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="operacional">Operacional</SelectItem><SelectItem value="comercial">Comercial</SelectItem><SelectItem value="tecnico">Técnico</SelectItem><SelectItem value="rh">RH</SelectItem></SelectContent></Select></label><label className="block text-xs font-medium">Tipo de acesso<Select defaultValue="sso"><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="sso">SSO integrado</SelectItem><SelectItem value="externo">Link externo</SelectItem></SelectContent></Select></label></div><label className="block text-xs font-medium">Endereço da aplicação<Input className="mt-1" placeholder="https://..." /></label><div className="rounded-md border border-primary/15 bg-accent p-3 text-xs leading-5 text-muted-foreground"><strong className="text-foreground">Vínculo corporativo:</strong> aplicações próprias usarão o e-mail corporativo único para localizar a conta já existente.</div></div> : modal === "approve" ? <div className="space-y-4 py-2"><div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-md border p-4"><span className="grid size-10 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">JP</span><div><strong className="block text-sm">João Pereira</strong><span className="text-xs text-muted-foreground">joao.pereira@empresa.com.br · Licitações</span></div></div><label className="flex items-center gap-2 text-xs"><Checkbox defaultChecked /> Confirmo que o e-mail corporativo e a área estão corretos.</label></div> : <div className="rounded-md border border-destructive/20 bg-destructive/5 p-4 text-xs leading-5 text-muted-foreground"><strong className="text-destructive">Efeito previsto:</strong> Carlos Nunes perderá acesso ao portal imediatamente. Sistemas de terceiros não permitem encerramento remoto de sessão.</div>}<DialogFooter><Button variant="outline" onClick={() => setModal(null)}>Cancelar</Button><Button variant={modal === "block" ? "destructive" : "default"} onClick={() => { setModal(null); showNotice(modal === "add" ? "Aplicação cadastrada na demonstração." : modal === "approve" ? "Cadastro aprovado na demonstração." : "Bloqueio global simulado com sucesso."); }}>{content.confirm}</Button></DialogFooter></DialogContent></Dialog>;
+    approve: { title: "Aprovar novo colaborador", description: `Revise os dados antes de liberar a conta de ${person?.name ?? ""}.`, confirm: "Aprovar cadastro" },
+    block: { title: `Bloquear ${person?.name ?? "colaborador"}`, description: "O login é impedido na hora e as sessões abertas nos sistemas próprios integrados são encerradas.", confirm: "Confirmar bloqueio" },
+    unblock: { title: `Desbloquear ${person?.name ?? "colaborador"}`, description: "O colaborador volta a entrar no portal com os mesmos cargos de antes.", confirm: "Desbloquear" },
+  }[modal.kind];
+  const body = modal.kind === "add" ? <div className="space-y-4 py-2"><label className="block text-xs font-medium">Nome da aplicação<Input className="mt-1" placeholder="Ex.: Central de CFTV" /></label><div className="grid grid-cols-2 gap-3"><label className="block text-xs font-medium">Categoria<Select defaultValue="operacional"><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="operacional">Operacional</SelectItem><SelectItem value="comercial">Comercial</SelectItem><SelectItem value="tecnico">Técnico</SelectItem><SelectItem value="rh">RH</SelectItem></SelectContent></Select></label><label className="block text-xs font-medium">Tipo de acesso<Select defaultValue="sso"><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="sso">SSO integrado</SelectItem><SelectItem value="externo">Link externo</SelectItem></SelectContent></Select></label></div><label className="block text-xs font-medium">Endereço da aplicação<Input className="mt-1" placeholder="https://..." /></label><div className="rounded-md border border-primary/15 bg-accent p-3 text-xs leading-5 text-muted-foreground"><strong className="text-foreground">Vínculo corporativo:</strong> aplicações próprias usarão o e-mail corporativo único para localizar a conta já existente.</div></div>
+    : modal.kind === "approve" ? <div className="space-y-4 py-2"><div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-md border p-4"><span className="grid size-10 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{person?.initials}</span><div><strong className="block text-sm">{person?.name}</strong><span className="text-xs text-muted-foreground">{person?.email} · {person?.area}</span></div></div><label className="flex items-center gap-2 text-xs"><Checkbox defaultChecked /> Confirmo que o e-mail corporativo e a área estão corretos.</label></div>
+    : modal.kind === "block" ? <div className="rounded-md border border-destructive/20 bg-destructive/5 p-4 text-xs leading-5 text-muted-foreground"><strong className="text-destructive">Efeito:</strong> {person?.name} perde o acesso ao portal e aos sistemas próprios imediatamente. Ferramentas de terceiros não permitem encerrar a sessão remotamente.</div>
+    : null;
+  return <Dialog open onOpenChange={(open) => !open && setModal(null)}><DialogContent><DialogHeader><DialogTitle>{content.title}</DialogTitle><DialogDescription>{content.description}</DialogDescription></DialogHeader>{body}<DialogFooter><Button variant="outline" onClick={() => setModal(null)}>Cancelar</Button><Button variant={modal.kind === "block" ? "destructive" : "default"} onClick={() => { const m = modal; setModal(null); if (m.kind === "add") showNotice("Aplicação cadastrada."); else onConfirm(m.kind, m.email); }}>{content.confirm}</Button></DialogFooter></DialogContent></Dialog>;
 }
