@@ -264,7 +264,7 @@ export function MandatoryNoticeOverlay({ items, onAcknowledge }: { items: Announ
   );
 }
 
-export function NoticesView({ items, now, acknowledged, onCreate, onOpen }: { items: Announcement[]; now: Date; acknowledged: string[]; onCreate: () => void; onOpen: (item: Announcement) => void }) {
+export function NoticesView({ items, now, acknowledged, onCreate, onOpen }: { items: Announcement[]; now: Date; acknowledged: string[]; onCreate?: () => void; onOpen: (item: Announcement) => void }) {
   const [sector, setSector] = useState("todos");
   const [status, setStatus] = useState("todos");
   const list = useMemo(() => sortByDateDesc(items).filter((item) => (sector === "todos" || item.sector === sector) && (status === "todos" || (status === "vigente") === isActive(item, now))), [items, sector, status, now]);
@@ -273,7 +273,7 @@ export function NoticesView({ items, now, acknowledged, onCreate, onOpen }: { it
       <section className="grid gap-4 rounded-lg border border-info/20 bg-info-soft p-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center">
         <span className="grid size-10 place-items-center rounded-md bg-info text-info-foreground"><Megaphone className="size-5" /></span>
         <div><strong className="text-sm">Coordenação, RH, DP e Marketing podem publicar avisos</strong><p className="mt-1 text-xs leading-5 text-muted-foreground">Avisos obrigatórios aparecem em tela cheia logo após o login. Cada publicação define até quando fica vigente.</p></div>
-        <Button onClick={onCreate}><Plus /> Novo aviso</Button>
+        {onCreate && <Button onClick={onCreate}><Plus /> Novo aviso</Button>}
       </section>
       <div className="grid gap-3 sm:grid-cols-2">
         <Select value={sector} onValueChange={setSector}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todos os setores</SelectItem>{publisherSectors.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
