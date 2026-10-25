@@ -264,7 +264,7 @@ export function MandatoryNoticeOverlay({ items, onAcknowledge }: { items: Announ
   );
 }
 
-export function NoticesView({ items, now, acknowledged, onCreate, onOpen }: { items: Announcement[]; now: Date; acknowledged: string[]; onCreate?: () => void; onOpen: (item: Announcement) => void }) {
+export function NoticesView({ items, now, acknowledged, onCreate, onOpen }: { items: Announcement[]; now: Date; acknowledged: string[]; onCreate?: (() => void) | undefined; onOpen: (item: Announcement) => void }) {
   const [sector, setSector] = useState("todos");
   const [status, setStatus] = useState("todos");
   const list = useMemo(() => sortByDateDesc(items).filter((item) => (sector === "todos" || item.sector === sector) && (status === "todos" || (status === "vigente") === isActive(item, now))), [items, sector, status, now]);
@@ -300,7 +300,7 @@ export function NoticesView({ items, now, acknowledged, onCreate, onOpen }: { it
   );
 }
 
-export function NoticeDetailDialog({ item, onClose, onEdit }: { item: Announcement | null; onClose: () => void; onEdit?: (item: Announcement) => void }) {
+export function NoticeDetailDialog({ item, onClose, onEdit }: { item: Announcement | null; onClose: () => void; onEdit?: ((item: Announcement) => void) | undefined }) {
   if (!item) return null;
   return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto"><DialogHeader><div className="flex flex-wrap items-center gap-2"><SectorBadge sector={item.sector} /><span className="text-xs text-muted-foreground">{fmt(item.publishedAt)} · {item.author}</span></div><DialogTitle className="font-display pt-2 text-xl">{item.title}</DialogTitle><DialogDescription className="text-sm font-semibold text-foreground">{item.summary}</DialogDescription></DialogHeader><NoticeBody item={item} /><p className="flex items-center gap-2 text-xs text-muted-foreground"><Clock3 className="size-3.5" />Vigência até {fmt(item.expiresAt)}</p><DialogFooter>{onEdit && <Button variant="outline" onClick={() => onEdit(item)}><Pencil />Editar aviso</Button>}<Button onClick={onClose}>Fechar</Button></DialogFooter></DialogContent></Dialog>;
 }
