@@ -429,7 +429,8 @@ function LaunchOverlay({ app, onDone }: { app: AppItem | null; onDone: () => voi
       onDone();
     }, 1400);
     return () => window.clearTimeout(t);
-  }, [app, onDone]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [app]);
   if (!app) return null;
   const Icon = app.icon;
   const sso = app.integration === "SSO integrado";
