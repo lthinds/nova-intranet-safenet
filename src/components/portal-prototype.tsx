@@ -176,7 +176,19 @@ export function PortalPrototype() {
   const currentUser = liveUser ? { ...liveUser, roles: [] as string[], label: "Colaborador" } : profile;
   const initials = currentUser.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
   const visibleApps = useMemo(() => apps.filter((app) => canSeeApp(app, currentUser.groups)), [currentUser.groups]);
-  const [acknowledged, setAcknowledged] = useState<string[]>([]);
+  // Read confirmations are kept per collaborator, so a confirmed notice never pops up again on later logins.
+  const ackKey = `safenet-ack:${currentUser.email}`;
+  const [acknowledged, setAcknowledgedState] = useState<string[]>([]);
+  const [ackLoaded, setAckLoaded] = useState(false);
+  useEffect(() => {
+    try { setAcknowledgedState(JSON.parse(window.localStorage.getItem(ackKey) ?? "[]")); } catch { setAcknowledgedState([]); }
+    setAckLoaded(true);
+  }, [ackKey]);
+  const setAcknowledged = (update: string[] | ((list: string[]) => string[])) => setAcknowledgedState((list) => {
+    const next = typeof update === "function" ? update(list) : update;
+    window.localStorage.setItem(ackKey, JSON.stringify(next));
+    return next;
+  });
   const [showMandatory, setShowMandatory] = useState(true);
   const [createNotice, setCreateNotice] = useState(false);
   const [openNotice, setOpenNotice] = useState<Announcement | null>(null);
