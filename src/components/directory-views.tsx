@@ -27,7 +27,7 @@ export function GlobalSearch({ sources, onPick }: { sources: SearchHit[]; onPick
   return (
     <div ref={box} className="relative w-full max-w-md">
       <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); if (e.key === "Enter" && hits[0]) { onPick(hits[0]); setOpen(false); setQ(""); } }} placeholder="Buscar apps, avisos, cursos, pessoas…" aria-label="Busca geral" className="h-10 pl-9" />
+      <Input value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); if (e.key === "Enter" && hits[0]) { onPick(hits[0]); setOpen(false); setQ(""); } }} placeholder="Buscar no portal…" aria-label="Busca geral" className="h-10 pl-9" />
       {open && q.trim() && (
         <div className="absolute left-0 right-0 top-12 z-50 max-h-[70vh] overflow-auto rounded-lg border bg-popover p-2 text-popover-foreground shadow-xl">
           {groups.length ? groups.map(({ k, items }) => {
