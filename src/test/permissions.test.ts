@@ -23,3 +23,10 @@ describe("abas por permissão", () => {
     expect(viewsAllowed(perms(["RH"]))).not.toContain("colaboradores");
   });
 });
+
+describe("aniversários e tempo de casa", () => {
+  it("aparece só para RH e DP", () => {
+    expect(viewsAllowed({ ...perms(["RH"]), canSeeHr: true })).toContain("aniversarios");
+    expect(viewsAllowed(perms(["Coordenação"]))).not.toContain("aniversarios");
+  });
+});
