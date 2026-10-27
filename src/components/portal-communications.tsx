@@ -264,7 +264,7 @@ export function MandatoryNoticeOverlay({ items, onAcknowledge }: { items: Announ
   );
 }
 
-export function NoticesView({ items, now, acknowledged, onCreate, onOpen }: { items: Announcement[]; now: Date; acknowledged: string[]; onCreate?: (() => void) | undefined; onOpen: (item: Announcement) => void }) {
+export function NoticesView({ items, now, acknowledged, onCreate, onOpen, extra }: { items: Announcement[]; now: Date; acknowledged: string[]; onCreate?: (() => void) | undefined; onOpen: (item: Announcement) => void; extra?: ((item: Announcement) => React.ReactNode) | undefined }) {
   const [sector, setSector] = useState("todos");
   const [status, setStatus] = useState("todos");
   const list = useMemo(() => sortByDateDesc(items).filter((item) => (sector === "todos" || item.sector === sector) && (status === "todos" || (status === "vigente") === isActive(item, now))), [items, sector, status, now]);
@@ -286,7 +286,7 @@ export function NoticesView({ items, now, acknowledged, onCreate, onOpen }: { it
             <li key={item.id} className="relative">
               <span className={cn("absolute -left-[31px] top-5 size-3 rounded-full ring-4 ring-background", active ? "bg-primary" : "bg-muted-foreground/40")} />
               <button onClick={() => onOpen(item)} className={cn("w-full rounded-lg border bg-card p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md", !active && "opacity-70")}>
-                <div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold">{fmt(item.publishedAt)}</span><SectorBadge sector={item.sector} />{item.mandatory && <Badge variant="outline" className="border-brand-orange/30 bg-brand-orange/10 text-brand-orange"><BellRing className="mr-1 size-3" />Tela cheia no login</Badge>}<Badge variant="outline" className={active ? "border-success/20 bg-success-soft text-success" : "bg-muted text-muted-foreground"}>{active ? `Vigente até ${fmt(item.expiresAt)}` : `Expirou em ${fmt(item.expiresAt)}`}</Badge><Badge variant="outline"><Users className="mr-1 size-3" />{audienceLabel(item.audience)}</Badge>{acknowledged.includes(item.id) && <span className="text-[11px] text-muted-foreground">· Leitura confirmada</span>}</div>
+                <div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold">{fmt(item.publishedAt)}</span><SectorBadge sector={item.sector} />{item.mandatory && <Badge variant="outline" className="border-brand-orange/30 bg-brand-orange/10 text-brand-orange"><BellRing className="mr-1 size-3" />Tela cheia no login</Badge>}<Badge variant="outline" className={active ? "border-success/20 bg-success-soft text-success" : "bg-muted text-muted-foreground"}>{active ? `Vigente até ${fmt(item.expiresAt)}` : `Expirou em ${fmt(item.expiresAt)}`}</Badge><Badge variant="outline"><Users className="mr-1 size-3" />{audienceLabel(item.audience)}</Badge>{acknowledged.includes(item.id) && <span className="text-[11px] text-muted-foreground">· Leitura confirmada</span>}{extra?.(item)}</div>
                 <h3 className="font-display mt-3 text-base font-bold">{item.title}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{item.summary}</p>
                 <span className="mt-3 flex items-center gap-1 text-xs font-bold text-primary">Ler aviso completo <ArrowRight className="size-3" /></span>

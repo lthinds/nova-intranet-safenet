@@ -39,5 +39,6 @@ export async function fetchUserInfo(fallback: UserInfo): Promise<{ user: UserInf
 export const demoProfiles: Array<UserInfo & { label: string; roles: string[] }> = [
   { label: "Coordenadora", name: "Marina Alves", email: "marina.alves@empresa.com.br", roles: ["Coordenação", "Monitoramento"], groups: ["GS_App_frota", "GS_App_rel-monitoramento", "GS_App_monitoramento", "GS_App_dash-comercial", "GS_App_pregoes", "GS_App_painel-licitacoes", "GS_App_manuais", "GS_App_recrutamento"] },
   { label: "Operador de monitoramento", name: "Rafael Costa", email: "rafael.costa@empresa.com.br", roles: ["Operacional", "Monitoramento"], groups: ["GS_App_monitoramento", "GS_App_rel-monitoramento", "GS_App_frota"] },
+  { label: "RH", name: "Ana Souza", email: "ana.souza@empresa.com.br", roles: ["RH"], groups: ["GS_App_recrutamento"] },
   { label: "Comercial", name: "Beatriz Lima", email: "beatriz.lima@empresa.com.br", roles: ["Comercial", "Licitações"], groups: ["GS_App_dash-comercial", "GS_App_pregoes", "GS_App_painel-licitacoes"] },
 ];
