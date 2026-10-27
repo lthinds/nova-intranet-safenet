@@ -47,6 +47,9 @@ import {
   Users,
   UserCog,
   X,
+  Star,
+  Contact,
+  Cake,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -87,9 +90,11 @@ import {
   type Announcement,
 } from "@/components/portal-communications";
 import { RolesView } from "@/components/roles-view";
+import { BirthdaysView, DirectoryView, GlobalSearch, type SearchHit } from "@/components/directory-views";
+import { canSeeHrData, readStats, toggleFavorite, type DirectoryEntry } from "@/lib/directory";
 import { deleteRole, hasPermission, seedRoles, type Role } from "@/lib/roles";
 
-type View = "inicio" | "avisos" | "treinamentos" | "aplicacoes" | "colaboradores" | "acessos" | "gestao" | "cargos";
+type View = "inicio" | "avisos" | "treinamentos" | "aplicacoes" | "colaboradores" | "acessos" | "gestao" | "cargos" | "diretorio" | "aniversarios";
 type Integration = "SSO integrado" | "Link externo";
 
 type AppItem = {
@@ -124,13 +129,14 @@ const apps: AppItem[] = appsData.map((a) => ({
 }));
 
 
-type Person = { name: string; email: string; area: string; roles: string[]; status: string; initials: string };
+type Person = DirectoryEntry & { status: string; initials: string };
 
 const seedPeople: Person[] = [
-  { name: "Marina Alves", email: "marina.alves@empresa.com.br", area: "Monitoramento", roles: ["Coordenação", "Monitoramento"], status: "Ativo", initials: "MA" },
-  { name: "Rafael Costa", email: "rafael.costa@empresa.com.br", area: "Operacional", roles: ["Operacional", "Monitoramento"], status: "Ativo", initials: "RC" },
-  { name: "Beatriz Lima", email: "beatriz.lima@empresa.com.br", area: "Comercial", roles: ["Comercial", "Licitações", "Marketing"], status: "Ativo", initials: "BL" },
-  { name: "Carlos Nunes", email: "carlos.nunes@empresa.com.br", area: "Técnico", roles: ["Técnico"], status: "Bloqueado", initials: "CN" },
+  { name: "Marina Alves", email: "marina.alves@empresa.com.br", area: "Monitoramento", roles: ["Coordenação", "Monitoramento"], status: "Ativo", initials: "MA", extension: "2101", birthDate: "1988-11-03", hireDate: "2016-03-14" },
+  { name: "Rafael Costa", email: "rafael.costa@empresa.com.br", area: "Operacional", roles: ["Operacional", "Monitoramento"], status: "Ativo", initials: "RC", extension: "2230", birthDate: "1995-10-29", hireDate: "2021-10-30" },
+  { name: "Ana Souza", email: "ana.souza@empresa.com.br", area: "RH", roles: ["RH"], status: "Ativo", initials: "AS", extension: "2050", birthDate: "1990-12-12", hireDate: "2019-02-01" },
+  { name: "Beatriz Lima", email: "beatriz.lima@empresa.com.br", area: "Comercial", roles: ["Comercial", "Licitações", "Marketing"], status: "Ativo", initials: "BL", extension: "2310", birthDate: "1992-11-20", hireDate: "2022-07-04" },
+  { name: "Carlos Nunes", email: "carlos.nunes@empresa.com.br", area: "Técnico", roles: ["Técnico"], status: "Bloqueado", initials: "CN", extension: "2405", birthDate: "1985-01-15", hireDate: "2014-05-20" },
   { name: "João Pereira", email: "joao.pereira@empresa.com.br", area: "Licitações", roles: ["Licitações"], status: "Pendente", initials: "JP" },
 ];
 
@@ -139,6 +145,8 @@ const navItems: Array<{ id: View; label: string; icon: ComponentType<{ className
   { id: "avisos", label: "Avisos", icon: Megaphone },
   { id: "aplicacoes", label: "Aplicações", icon: AppWindow },
   { id: "treinamentos", label: "Treinamentos", icon: GraduationCap },
+  { id: "diretorio", label: "Diretório", icon: Contact },
+  { id: "aniversarios", label: "Aniversários e tempo de casa", icon: Cake },
   { id: "colaboradores", label: "Colaboradores", icon: Users },
   { id: "acessos", label: "Acessos", icon: ShieldEllipsis },
   { id: "gestao", label: "Gestão de aplicações", icon: Settings },
@@ -148,8 +156,9 @@ const navItems: Array<{ id: View; label: string; icon: ComponentType<{ className
 type ModalState = null | { kind: "add" } | { kind: "approve" | "block" | "unblock"; email: string };
 
 /** Abas visíveis conforme as permissões do portal somadas de todos os cargos do usuário. */
-export function viewsAllowed(p: { canManageRoles: boolean; canManagePeople: boolean; canManageApps: boolean }): View[] {
-  const v: View[] = ["inicio", "avisos", "aplicacoes", "treinamentos"];
+export function viewsAllowed(p: { canManageRoles: boolean; canManagePeople: boolean; canManageApps: boolean; canSeeHr?: boolean }): View[] {
+  const v: View[] = ["inicio", "avisos", "aplicacoes", "treinamentos", "diretorio"];
+  if (p.canSeeHr) v.push("aniversarios");
   if (p.canManagePeople) v.push("colaboradores", "acessos");
   if (p.canManageApps) v.push("gestao");
   if (p.canManageRoles) v.push("cargos");
@@ -200,7 +209,13 @@ export function PortalPrototype() {
   const canPublish = hasPermission(currentUser.roles, roles, "publicar_avisos");
   const canManagePeople = hasPermission(currentUser.roles, roles, "gerenciar_colaboradores");
   const canManageApps = hasPermission(currentUser.roles, roles, "gerenciar_aplicacoes");
-  const allowedViews = viewsAllowed({ canManageRoles, canManagePeople, canManageApps });
+  const canSeeHr = canSeeHrData(currentUser.roles);
+  const allowedViews = viewsAllowed({ canManageRoles, canManagePeople, canManageApps, canSeeHr });
+  const favKey = `safenet-fav:${currentUser.email}`;
+  const [favorites, setFavorites] = useState<string[]>([]);
+  useEffect(() => { try { setFavorites(JSON.parse(window.localStorage.getItem(favKey) ?? "[]")); } catch { setFavorites([]); } }, [favKey]);
+  const toggleFav = (id: string) => setFavorites((list) => { const next = toggleFavorite(list, id); window.localStorage.setItem(favKey, JSON.stringify(next)); return next; });
+  const [focusPerson, setFocusPerson] = useState<string | null>(null);
   useEffect(() => { if (!allowedViews.includes(view)) setView("inicio"); }, [view, allowedViews]);
   const pendingCount = people.filter((p) => p.status === "Pendente").length;
   const [launching, setLaunching] = useState<AppItem | null>(null);
@@ -218,6 +233,26 @@ export function PortalPrototype() {
   }
 
   const pendingMandatory = sortByDateDesc(announcements).filter((item) => item.mandatory && isActive(item, now) && isRecipient(item, currentUser) && !acknowledged.includes(item.id));
+  const unreadCount = announcements.filter((item) => isActive(item, now) && isRecipient(item, currentUser) && !acknowledged.includes(item.id)).length;
+  const acksByEmail = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    if (typeof window === "undefined") return out;
+    for (const p of people) { try { out[p.email] = JSON.parse(window.localStorage.getItem(`safenet-ack:${p.email}`) ?? "[]"); } catch { out[p.email] = []; } }
+    out[currentUser.email] = acknowledged;
+    return out;
+  }, [people, acknowledged, currentUser.email]);
+  const searchSources: SearchHit[] = useMemo(() => [
+    ...visibleApps.map((a) => ({ kind: "app" as const, id: a.id, title: a.name, subtitle: `${a.category} · ${a.description}` })),
+    ...announcements.filter((n) => isActive(n, now) && isRecipient(n, currentUser)).map((n) => ({ kind: "aviso" as const, id: n.id, title: n.title, subtitle: n.summary })),
+    ...courses.map((c, i) => ({ kind: "treinamento" as const, id: String(i), title: c.curso, subtitle: `${c.fabricante} · ${c.modalidade}` })),
+    ...people.filter((p) => p.status === "Ativo").map((p) => ({ kind: "pessoa" as const, id: p.email, title: p.name, subtitle: `${p.area} · ${p.roles.join(", ")}${p.extension ? ` · Ramal ${p.extension}` : ""}` })),
+  ], [visibleApps, announcements, courses, people, now, currentUser]);
+  function pickHit(h: SearchHit) {
+    if (h.kind === "app") { const a = visibleApps.find((x) => x.id === h.id); if (a) setSelectedApp(a); }
+    if (h.kind === "aviso") { const n = announcements.find((x) => x.id === h.id); if (n) setOpenNotice(n); }
+    if (h.kind === "treinamento") navigate("treinamentos");
+    if (h.kind === "pessoa") { setFocusPerson(h.id); navigate("diretorio"); }
+  }
   const [access, setAccess] = useState<Record<string, boolean>>({
     "Ponto — Pontotel": true,
     Webmail: true,
@@ -255,6 +290,8 @@ export function PortalPrototype() {
     colaboradores: { title: "Colaboradores", description: "Aprove cadastros e acompanhe a situação das contas." },
     acessos: { title: "Gestão de acessos", description: "Defina quais ferramentas cada colaborador visualiza no portal." },
     cargos: { title: "Cargos e permissões", description: "Crie cargos e defina o que cada um vê e administra no portal." },
+    diretorio: { title: "Diretório de colaboradores", description: "Encontre colegas por nome, setor, cargo ou ramal." },
+    aniversarios: { title: "Aniversários e tempo de casa", description: "Datas comemorativas da equipe (exclusivo RH e DP)." },
     gestao: { title: "Gestão de aplicações", description: "Cadastre ferramentas e escolha como cada acesso será realizado." },
   };
 
@@ -274,7 +311,7 @@ export function PortalPrototype() {
           <p className="px-3 pb-2 text-[10px] font-bold uppercase text-sidebar-foreground/45">Portal</p>
           {navItems.filter((item) => allowedViews.includes(item.id)).map((item) => {
             const Icon = item.icon;
-            return <Button key={item.id} variant="ghost" onClick={() => navigate(item.id)} className={cn("h-11 w-full justify-start px-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", view === item.id && "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm")}><Icon />{item.label}{item.id === "colaboradores" && pendingCount > 0 && <span className="ml-auto grid size-5 place-items-center rounded-full bg-warning text-warning-foreground text-[10px] font-bold">{pendingCount}</span>}</Button>;
+            return <Button key={item.id} variant="ghost" onClick={() => navigate(item.id)} className={cn("h-11 w-full justify-start px-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", view === item.id && "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm")}><Icon />{item.label}{item.id === "avisos" && unreadCount > 0 && <span className="ml-auto grid size-5 place-items-center rounded-full bg-brand-orange text-[10px] font-bold text-primary-foreground" aria-label={`${unreadCount} não lidos`}>{unreadCount}</span>}{item.id === "colaboradores" && pendingCount > 0 && <span className="ml-auto grid size-5 place-items-center rounded-full bg-warning text-warning-foreground text-[10px] font-bold">{pendingCount}</span>}</Button>;
           })}
         </nav>
         <div className="border-t border-sidebar-border p-3">
@@ -291,12 +328,11 @@ export function PortalPrototype() {
       <div className="lg:pl-[272px]">
         <header className="sticky top-0 z-20 grid h-20 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b bg-background/95 px-4 backdrop-blur-sm md:px-8">
           <Button variant="outline" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir menu"><Menu /></Button>
-          <div className="hidden min-w-0 items-center gap-2 text-xs text-muted-foreground sm:flex"><span>Portal</span><span>/</span><strong className="truncate text-foreground">{currentTitle.title}</strong></div>
-          <div className="sm:hidden" />
+          <div className="min-w-0"><GlobalSearch sources={searchSources} onPick={pickHit} /></div>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="hidden h-8 gap-2 border-success/20 bg-success-soft text-success sm:flex"><span className="size-1.5 rounded-full bg-success" /> Rede interna</Badge>
+            <Badge variant="outline" className="hidden h-8 gap-2 border-success/20 bg-success-soft text-success xl:flex"><span className="size-1.5 rounded-full bg-success" /> Rede interna</Badge>
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label={dark ? "Usar tema claro" : "Usar tema escuro"}>{dark ? <Sun /> : <Moon />}</Button>
-            <Button variant="ghost" size="icon" aria-label="Avisos" onClick={() => navigate("avisos")} className="relative"><Bell /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-warning" /></Button>
+            <Button variant="ghost" size="icon" aria-label="Avisos" onClick={() => navigate("avisos")} className="relative"><Bell />{unreadCount > 0 && <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-brand-orange text-[9px] font-bold text-primary-foreground">{unreadCount}</span>}</Button>
             <span className="hidden h-6 w-px bg-border sm:block" />
             {liveUser ? <span className="hidden items-center gap-2 px-2 md:flex"><span className="grid size-8 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{initials}</span><strong className="text-xs">{currentUser.name}</strong></span> : <label className="relative hidden items-center gap-2 rounded-md px-2 py-1 hover:bg-muted md:flex" title="Simular usuário (demonstração do /oauth2/userinfo)"><span className="grid size-8 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{initials}</span><span><strong className="block text-xs">{currentUser.name}</strong><small className="block text-[10px] text-muted-foreground">{profile.label} · {currentUser.groups.length} grupos</small></span><ChevronDown className="size-3 text-muted-foreground" /><select aria-label="Simular usuário" className="absolute inset-0 cursor-pointer opacity-0" value={profileIndex} onChange={(e) => { setProfileIndex(Number(e.target.value)); setAckLoaded(false); setShowMandatory(true); }}>{demoProfiles.map((p, i) => <option key={p.email} value={i}>{p.name} — {p.label}</option>)}</select></label>}
           </div>
@@ -308,10 +344,12 @@ export function PortalPrototype() {
             {view === "gestao" && canManageApps && <Button onClick={() => setModal({ kind: "add" })}><Plus /> Nova aplicação</Button>}
           </div>
 
-          {view === "inicio" && <HomeView apps={visibleApps} navigate={navigate} onSelect={setSelectedApp} latest={sortByDateDesc(announcements).filter((item) => isActive(item, now)).slice(0, 2)} onOpenNotice={setOpenNotice} />}
-          {view === "avisos" && <NoticesView items={announcements} now={now} acknowledged={acknowledged} onCreate={canPublish ? () => setCreateNotice(true) : undefined} onOpen={setOpenNotice} />}
+          {view === "inicio" && <HomeView favorites={favorites} onToggleFav={toggleFav} apps={visibleApps} navigate={navigate} onSelect={setSelectedApp} latest={sortByDateDesc(announcements).filter((item) => isActive(item, now)).slice(0, 2)} onOpenNotice={setOpenNotice} />}
+          {view === "avisos" && <NoticesView items={announcements} now={now} acknowledged={acknowledged} onCreate={canPublish ? () => setCreateNotice(true) : undefined} onOpen={(item) => { setOpenNotice(item); if (!item.mandatory && !acknowledged.includes(item.id)) setAcknowledged((l) => [...l, item.id]); }} extra={canPublish ? (item) => { const recips = people.filter((p) => p.status === "Ativo" && isRecipient(item, p)); const st = readStats(recips, acksByEmail, item.id); return <Badge variant="outline" className="border-info/20 bg-info-soft text-info" title={`${st.pending} pendentes`}><Eye className="mr-1 size-3" />{st.read}/{st.total} leram</Badge>; } : undefined} />}
           {view === "treinamentos" && <TrainingsView courses={courses} now={now} />}
-          {view === "aplicacoes" && <ApplicationsView apps={filteredApps} query={query} setQuery={setQuery} category={category} setCategory={setCategory} onSelect={setSelectedApp} />}
+          {view === "aplicacoes" && <ApplicationsView favorites={favorites} onToggleFav={toggleFav} apps={filteredApps} query={query} setQuery={setQuery} category={category} setCategory={setCategory} onSelect={setSelectedApp} />}
+          {view === "diretorio" && <DirectoryView people={people} focus={focusPerson} />}
+          {view === "aniversarios" && canSeeHr && <BirthdaysView people={people} now={now} />}
           {view === "colaboradores" && canManagePeople && <PeopleView people={people} setPeople={setPeople} roleNames={roles.map((r) => r.name)} setModal={setModal} showNotice={showNotice} />}
           {view === "cargos" && canManageRoles && <RolesView roles={roles} people={people} apps={apps.map((a) => ({ id: a.id, name: a.name }))} onSave={(role, prev) => { setRoles((list) => list.some((r) => r.id === role.id) ? list.map((r) => (r.id === role.id ? role : r)) : [...list, role]); if (prev && prev !== role.name) setPeople((list) => list.map((p) => ({ ...p, roles: p.roles.map((n) => (n === prev ? role.name : n)) }))); showNotice(prev ? `Cargo ${role.name} atualizado.` : `Cargo ${role.name} criado.`); }} onDelete={(id) => { const name = roles.find((r) => r.id === id)?.name; const res = deleteRole(id, roles, people); setRoles(res.roles); setPeople(res.people); showNotice(`Cargo ${name} excluído.`); }} />}
           {view === "acessos" && canManagePeople && <AccessView access={access} setAccess={setAccess} showNotice={showNotice} />}
@@ -342,13 +380,15 @@ export function PortalPrototype() {
   );
 }
 
-function HomeView({ apps, navigate, onSelect, latest, onOpenNotice }: { apps: AppItem[]; navigate: (view: View) => void; onSelect: (app: AppItem) => void; latest: Announcement[]; onOpenNotice: (item: Announcement) => void }) {
-  const recent = apps.filter((app) => app.recent);
+function HomeView({ apps, navigate, onSelect, latest, onOpenNotice, favorites, onToggleFav }: { favorites: string[]; onToggleFav: (id: string) => void; apps: AppItem[]; navigate: (view: View) => void; onSelect: (app: AppItem) => void; latest: Announcement[]; onOpenNotice: (item: Announcement) => void }) {
+  const favApps = apps.filter((app) => favorites.includes(app.id));
+  const recent = favApps.length ? favApps : apps.filter((app) => app.recent);
   return <div className="space-y-7">
     <HeroCarousel onOpenNotices={() => navigate("avisos")} />
     <section>
-      <SectionHeading title="Acessados recentemente" action={<Button variant="ghost" size="sm" onClick={() => navigate("aplicacoes")}>Ver todos <ArrowRight /></Button>} />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{recent.map((app) => <AppCard key={app.name} app={app} onClick={() => onSelect(app)} compact />)}</div>
+      <SectionHeading title={favApps.length ? "Seus favoritos" : "Sugeridos para você"} action={<Button variant="ghost" size="sm" onClick={() => navigate("aplicacoes")}>Ver todos <ArrowRight /></Button>} />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{recent.map((app) => <AppCard key={app.name} app={app} onClick={() => onSelect(app)} compact favorite={favorites.includes(app.id)} onToggleFav={() => onToggleFav(app.id)} />)}</div>
+      {!favApps.length && <p className="mt-3 text-xs text-muted-foreground">Dica: toque na estrela de um aplicativo para fixá-lo aqui.</p>}
     </section>
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(290px,.7fr)]">
       <section className="rounded-lg border bg-card p-5 text-card-foreground shadow-sm"><SectionHeading title="Visão do portal" /><div className="grid gap-3 sm:grid-cols-3"><Metric value="17" label="Aplicações cadastradas" icon={AppWindow} /><Metric value="12" label="Liberadas para você" icon={BadgeCheck} /><Metric value="100%" label="Serviços disponíveis" icon={ShieldCheck} /></div></section>
@@ -357,7 +397,7 @@ function HomeView({ apps, navigate, onSelect, latest, onOpenNotice }: { apps: Ap
   </div>;
 }
 
-function ApplicationsView({ apps: visibleApps, query, setQuery, category, setCategory, onSelect }: { apps: AppItem[]; query: string; setQuery: (value: string) => void; category: string; setCategory: (value: string) => void; onSelect: (app: AppItem) => void }) {
+function ApplicationsView({ apps: visibleApps, query, setQuery, category, setCategory, onSelect, favorites, onToggleFav }: { favorites: string[]; onToggleFav: (id: string) => void; apps: AppItem[]; query: string; setQuery: (value: string) => void; category: string; setCategory: (value: string) => void; onSelect: (app: AppItem) => void }) {
   return <div className="space-y-5">
     <div className="grid gap-3 rounded-lg border bg-card p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_220px_auto]">
       <label className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar aplicação ou recurso..." className="h-10 pl-9" /><span className="sr-only">Buscar aplicações</span></label>
@@ -365,7 +405,7 @@ function ApplicationsView({ apps: visibleApps, query, setQuery, category, setCat
       <Button variant="outline" className="h-10"><ListFilter /> Filtros</Button>
     </div>
     <div className="flex items-center justify-between"><p className="text-xs text-muted-foreground"><strong className="text-foreground">{visibleApps.length}</strong> aplicações encontradas</p><div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex"><Eye className="size-4" /> Mostrando apenas ferramentas dos seus grupos (GS_App)</div></div>
-    {visibleApps.length ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{visibleApps.map((app) => <AppCard key={app.name} app={app} onClick={() => onSelect(app)} />)}</div> : <div className="grid min-h-72 place-items-center rounded-lg border border-dashed bg-card text-center"><div><Search className="mx-auto size-8 text-muted-foreground" /><h2 className="mt-3 font-semibold">Nenhuma aplicação encontrada</h2><p className="mt-1 text-sm text-muted-foreground">Tente outro termo ou categoria.</p></div></div>}
+    {visibleApps.length ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[...visibleApps].sort((a, b) => Number(favorites.includes(b.id)) - Number(favorites.includes(a.id))).map((app) => <AppCard key={app.name} app={app} onClick={() => onSelect(app)} favorite={favorites.includes(app.id)} onToggleFav={() => onToggleFav(app.id)} />)}</div> : <div className="grid min-h-72 place-items-center rounded-lg border border-dashed bg-card text-center"><div><Search className="mx-auto size-8 text-muted-foreground" /><h2 className="mt-3 font-semibold">Nenhuma aplicação encontrada</h2><p className="mt-1 text-sm text-muted-foreground">Tente outro termo ou categoria.</p></div></div>}
   </div>;
 }
 
@@ -399,9 +439,9 @@ function ManagementView({ onSelect }: { onSelect: (app: AppItem) => void }) {
   return <div className="space-y-5"><div className="grid gap-3 sm:grid-cols-3"><Metric value="9" label="SSO integrado" icon={KeyRound} /><Metric value="7" label="Links externos" icon={ExternalLink} /><Metric value="1" label="Em configuração" icon={Clock3} /></div><section className="overflow-hidden rounded-lg border bg-card shadow-sm"><div className="grid gap-3 border-b p-4 md:grid-cols-[minmax(0,1fr)_220px]"><label className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input placeholder="Buscar aplicação..." className="pl-9" /></label><Select defaultValue="todas"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todas">Todos os tipos</SelectItem><SelectItem value="sso">SSO integrado</SelectItem><SelectItem value="externo">Link externo</SelectItem></SelectContent></Select></div><div className="divide-y">{apps.slice(0, 10).map((app) => { const Icon = app.icon; return <div key={app.name} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-4 md:grid-cols-[auto_minmax(0,1.5fr)_minmax(150px,.7fr)_130px_auto]"><span className="grid size-10 place-items-center rounded-md bg-accent text-primary"><Icon className="size-5" /></span><div className="min-w-0"><strong className="block truncate text-sm">{app.name}</strong><span className="block truncate text-xs text-muted-foreground">{app.category}</span></div><div className="hidden md:block"><IntegrationBadge type={app.integration} /></div><span className="hidden text-xs text-muted-foreground md:block">{app.status}</span><Button variant="ghost" size="icon" onClick={() => onSelect(app)} aria-label={`Configurar ${app.name}`}><Settings /></Button></div>; })}</div></section></div>;
 }
 
-function AppCard({ app, onClick, compact = false }: { app: AppItem; onClick: () => void; compact?: boolean }) {
+function AppCard({ app, onClick, compact = false, favorite = false, onToggleFav }: { app: AppItem; onClick: () => void; compact?: boolean; favorite?: boolean; onToggleFav?: () => void }) {
   const Icon = app.icon;
-  return <button onClick={onClick} className={cn("group flex min-h-48 flex-col rounded-lg border bg-card p-5 text-left text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md", compact && "min-h-40 p-4")}><div className="flex w-full items-start justify-between gap-3"><span className="grid size-10 place-items-center rounded-md bg-accent text-primary"><Icon className="size-5" /></span><Badge variant="outline" className={cn("border-success/15 bg-success-soft text-success", app.status === "Em breve" && "border-border bg-muted text-muted-foreground")}>{app.status}</Badge></div><h3 className="mt-4 text-sm font-bold">{app.name}</h3><p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{app.description}</p><span className="mt-auto flex items-center gap-1 pt-4 text-xs font-bold text-primary">{app.status === "Em breve" ? "Ver detalhes" : "Acessar"}<ArrowRight className="size-3 transition-transform group-hover:translate-x-1" /></span></button>;
+  return <div className="relative">{onToggleFav && <button onClick={onToggleFav} aria-label={favorite ? `Remover ${app.name} dos favoritos` : `Fixar ${app.name} nos favoritos`} aria-pressed={favorite} className="absolute bottom-3 right-3 z-10 grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-brand-orange"><Star className={cn("size-4", favorite && "fill-brand-orange text-brand-orange")} /></button>}<button onClick={onClick} className={cn("group flex h-full w-full min-h-48 flex-col rounded-lg border bg-card p-5 text-left text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md", compact && "min-h-40 p-4")}><div className="flex w-full items-start justify-between gap-3"><span className="grid size-10 place-items-center rounded-md bg-accent text-primary"><Icon className="size-5" /></span><Badge variant="outline" className={cn("border-success/15 bg-success-soft text-success", app.status === "Em breve" && "border-border bg-muted text-muted-foreground")}>{app.status}</Badge></div><h3 className="mt-4 text-sm font-bold">{app.name}</h3><p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{app.description}</p><span className="mt-auto flex items-center gap-1 pt-4 text-xs font-bold text-primary">{app.status === "Em breve" ? "Ver detalhes" : "Acessar"}<ArrowRight className="size-3 transition-transform group-hover:translate-x-1" /></span></button></div>;
 }
 
 function Metric({ value, label, icon: Icon }: { value: string; label: string; icon: ComponentType<{ className?: string }> }) {
