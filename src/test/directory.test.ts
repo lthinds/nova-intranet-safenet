@@ -32,3 +32,10 @@ describe("diretório", () => {
     expect(readStats([{ email: "a" }, { email: "b" }], { a: ["n1"] }, "n1")).toEqual({ read: 1, total: 2, pending: 1 });
   });
 });
+
+import { identityFromLogin } from "@/lib/directory";
+describe("identidade a partir do login", () => {
+  it("gera nome e e-mail corporativo de nome.sobrenome", () => {
+    expect(identityFromLogin("joao.pereira")).toEqual({ name: "Joao Pereira", email: "joao.pereira@safenettecnologia.com.br" });
+  });
+});

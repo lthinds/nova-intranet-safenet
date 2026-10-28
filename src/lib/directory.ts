@@ -1,6 +1,6 @@
 // Diretório de colaboradores, favoritos, busca (sem IA) e dados restritos ao RH/DP.
 
-export type DirectoryEntry = { name: string; email: string; area: string; roles: string[]; phone?: string; birthDate?: string; hireDate?: string };
+export type DirectoryEntry = { name: string; email: string; area: string; roles: string[]; phone?: string | undefined; birthDate?: string | undefined; hireDate?: string | undefined };
 
 /** Aniversários e tempo de casa: somente RH e DP. */
 export const HR_DATA_ROLES = ["RH", "DP"];

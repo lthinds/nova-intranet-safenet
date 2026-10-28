@@ -20,7 +20,8 @@ describe("abas por permissão", () => {
   });
   it("RH publica avisos mas não gerencia colaboradores", () => {
     expect(hasPermission(["RH"], seedRoles, "publicar_avisos")).toBe(true);
-    expect(viewsAllowed(perms(["RH"]))).not.toContain("colaboradores");
+    expect(viewsAllowed(perms(["RH"]))).not.toContain("acessos");
+    expect(viewsAllowed({ ...perms(["RH"]), canSeeHr: true })).toContain("colaboradores");
   });
 });
 
