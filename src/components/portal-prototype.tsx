@@ -91,7 +91,7 @@ import {
 } from "@/components/portal-communications";
 import { RolesView } from "@/components/roles-view";
 import { BirthdaysView, DirectoryView, GlobalSearch, type SearchHit } from "@/components/directory-views";
-import { canSeeHrData, readStats, toggleFavorite, type DirectoryEntry } from "@/lib/directory";
+import { canSeeHrData, identityFromLogin, readStats, toggleFavorite, type DirectoryEntry } from "@/lib/directory";
 import { deleteRole, hasPermission, seedRoles, type Role } from "@/lib/roles";
 
 type View = "inicio" | "avisos" | "treinamentos" | "aplicacoes" | "colaboradores" | "acessos" | "gestao" | "cargos" | "diretorio" | "aniversarios";
@@ -132,12 +132,12 @@ const apps: AppItem[] = appsData.map((a) => ({
 type Person = DirectoryEntry & { status: string; initials: string };
 
 const seedPeople: Person[] = [
-  { name: "Marina Alves", email: "marina.alves@empresa.com.br", area: "Monitoramento", roles: ["Coordenação", "Monitoramento"], status: "Ativo", initials: "MA", extension: "2101", birthDate: "1988-11-03", hireDate: "2016-03-14" },
-  { name: "Rafael Costa", email: "rafael.costa@empresa.com.br", area: "Operacional", roles: ["Operacional", "Monitoramento"], status: "Ativo", initials: "RC", extension: "2230", birthDate: "1995-10-29", hireDate: "2021-10-30" },
-  { name: "Ana Souza", email: "ana.souza@empresa.com.br", area: "RH", roles: ["RH"], status: "Ativo", initials: "AS", extension: "2050", birthDate: "1990-12-12", hireDate: "2019-02-01" },
-  { name: "Beatriz Lima", email: "beatriz.lima@empresa.com.br", area: "Comercial", roles: ["Comercial", "Licitações", "Marketing"], status: "Ativo", initials: "BL", extension: "2310", birthDate: "1992-11-20", hireDate: "2022-07-04" },
-  { name: "Carlos Nunes", email: "carlos.nunes@empresa.com.br", area: "Técnico", roles: ["Técnico"], status: "Bloqueado", initials: "CN", extension: "2405", birthDate: "1985-01-15", hireDate: "2014-05-20" },
-  { name: "João Pereira", email: "joao.pereira@empresa.com.br", area: "Licitações", roles: ["Licitações"], status: "Pendente", initials: "JP" },
+  { name: "Marina Alves", email: "marina.alves@safenettecnologia.com.br", area: "Monitoramento", roles: ["Coordenação", "Monitoramento"], status: "Ativo", initials: "MA", phone: "(11) 98765-2101", birthDate: "1988-11-03", hireDate: "2016-03-14" },
+  { name: "Rafael Costa", email: "rafael.costa@safenettecnologia.com.br", area: "Operacional", roles: ["Operacional", "Monitoramento"], status: "Ativo", initials: "RC", phone: "(11) 98765-2230", birthDate: "1995-10-29", hireDate: "2021-10-30" },
+  { name: "Ana Souza", email: "ana.souza@safenettecnologia.com.br", area: "RH", roles: ["RH"], status: "Ativo", initials: "AS", phone: "(11) 98765-2050", birthDate: "1990-12-12", hireDate: "2019-02-01" },
+  { name: "Beatriz Lima", email: "beatriz.lima@safenettecnologia.com.br", area: "Comercial", roles: ["Comercial", "Licitações", "Marketing"], status: "Ativo", initials: "BL", phone: "(11) 98765-2310", birthDate: "1992-11-20", hireDate: "2022-07-04" },
+  { name: "Carlos Nunes", email: "carlos.nunes@safenettecnologia.com.br", area: "Técnico", roles: ["Técnico"], status: "Bloqueado", initials: "CN", phone: "(11) 98765-2405", birthDate: "1985-01-15", hireDate: "2014-05-20" },
+  { name: "João Pereira", email: "joao.pereira@safenettecnologia.com.br", area: "Licitações", roles: ["Licitações"], status: "Pendente", initials: "JP" },
 ];
 
 const navItems: Array<{ id: View; label: string; icon: ComponentType<{ className?: string }> }> = [
@@ -159,7 +159,9 @@ type ModalState = null | { kind: "add" } | { kind: "approve" | "block" | "unbloc
 export function viewsAllowed(p: { canManageRoles: boolean; canManagePeople: boolean; canManageApps: boolean; canSeeHr?: boolean }): View[] {
   const v: View[] = ["inicio", "avisos", "aplicacoes", "treinamentos", "diretorio"];
   if (p.canSeeHr) v.push("aniversarios");
-  if (p.canManagePeople) v.push("colaboradores", "acessos");
+  // RH/DP manage collaborator data (not permissions), so they also see the people list.
+  if (p.canManagePeople || p.canSeeHr) v.push("colaboradores");
+  if (p.canManagePeople) v.push("acessos");
   if (p.canManageApps) v.push("gestao");
   if (p.canManageRoles) v.push("cargos");
   return v;
@@ -204,6 +206,7 @@ export function PortalPrototype() {
   const [editingNotice, setEditingNotice] = useState<Announcement | null>(null);
   const [dark, setDark] = useState(false);
   const [roles, setRoles] = useState<Role[]>(seedRoles);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [people, setPeople] = useState<Person[]>(seedPeople);
   const canManageRoles = hasPermission(currentUser.roles, roles, "gerenciar_cargos");
   const canPublish = hasPermission(currentUser.roles, roles, "publicar_avisos");
@@ -245,7 +248,7 @@ export function PortalPrototype() {
     ...visibleApps.map((a) => ({ kind: "app" as const, id: a.id, title: a.name, subtitle: `${a.category} · ${a.description}` })),
     ...announcements.filter((n) => isActive(n, now) && isRecipient(n, currentUser)).map((n) => ({ kind: "aviso" as const, id: n.id, title: n.title, subtitle: n.summary })),
     ...courses.map((c, i) => ({ kind: "treinamento" as const, id: String(i), title: c.curso, subtitle: `${c.fabricante} · ${c.modalidade}` })),
-    ...people.filter((p) => p.status === "Ativo").map((p) => ({ kind: "pessoa" as const, id: p.email, title: p.name, subtitle: `${p.area} · ${p.roles.join(", ")}${p.extension ? ` · Ramal ${p.extension}` : ""}` })),
+    ...people.filter((p) => p.status === "Ativo").map((p) => ({ kind: "pessoa" as const, id: p.email, title: p.name, subtitle: `${p.area} · ${p.roles.join(", ")}${p.phone ? ` · ${p.phone}` : ""}` })),
   ], [visibleApps, announcements, courses, people, now, currentUser]);
   function pickHit(h: SearchHit) {
     if (h.kind === "app") { const a = visibleApps.find((x) => x.id === h.id); if (a) setSelectedApp(a); }
@@ -290,7 +293,7 @@ export function PortalPrototype() {
     colaboradores: { title: "Colaboradores", description: "Aprove cadastros e acompanhe a situação das contas." },
     acessos: { title: "Gestão de acessos", description: "Defina quais ferramentas cada colaborador visualiza no portal." },
     cargos: { title: "Cargos e permissões", description: "Crie cargos e defina o que cada um vê e administra no portal." },
-    diretorio: { title: "Diretório de colaboradores", description: "Encontre colegas por nome, setor, cargo ou ramal." },
+    diretorio: { title: "Diretório de colaboradores", description: "Encontre colegas por nome, setor, cargo ou telefone." },
     aniversarios: { title: "Aniversários e tempo de casa", description: "Datas comemorativas da equipe (exclusivo RH e DP)." },
     gestao: { title: "Gestão de aplicações", description: "Cadastre ferramentas e escolha como cada acesso será realizado." },
   };
@@ -333,6 +336,7 @@ export function PortalPrototype() {
             <Badge variant="outline" className="hidden h-8 gap-2 border-success/20 bg-success-soft text-success xl:flex"><span className="size-1.5 rounded-full bg-success" /> Rede interna</Badge>
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label={dark ? "Usar tema claro" : "Usar tema escuro"}>{dark ? <Sun /> : <Moon />}</Button>
             <Button variant="ghost" size="icon" aria-label="Avisos" onClick={() => navigate("avisos")} className="relative"><Bell />{unreadCount > 0 && <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-brand-orange text-[9px] font-bold text-primary-foreground">{unreadCount}</span>}</Button>
+            <Button variant="ghost" size="sm" onClick={() => setProfileOpen(true)} aria-label="Meu perfil"><UserCheck /><span className="hidden sm:inline">Meu perfil</span></Button>
             <span className="hidden h-6 w-px bg-border sm:block" />
             {liveUser ? <span className="hidden items-center gap-2 px-2 md:flex"><span className="grid size-8 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{initials}</span><strong className="text-xs">{currentUser.name}</strong></span> : <label className="relative hidden items-center gap-2 rounded-md px-2 py-1 hover:bg-muted md:flex" title="Simular usuário (demonstração do /oauth2/userinfo)"><span className="grid size-8 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{initials}</span><span><strong className="block text-xs">{currentUser.name}</strong><small className="block text-[10px] text-muted-foreground">{profile.label} · {currentUser.groups.length} grupos</small></span><ChevronDown className="size-3 text-muted-foreground" /><select aria-label="Simular usuário" className="absolute inset-0 cursor-pointer opacity-0" value={profileIndex} onChange={(e) => { setProfileIndex(Number(e.target.value)); setAckLoaded(false); setShowMandatory(true); }}>{demoProfiles.map((p, i) => <option key={p.email} value={i}>{p.name} — {p.label}</option>)}</select></label>}
           </div>
@@ -350,13 +354,14 @@ export function PortalPrototype() {
           {view === "aplicacoes" && <ApplicationsView favorites={favorites} onToggleFav={toggleFav} apps={filteredApps} query={query} setQuery={setQuery} category={category} setCategory={setCategory} onSelect={setSelectedApp} />}
           {view === "diretorio" && <DirectoryView people={people} focus={focusPerson} />}
           {view === "aniversarios" && canSeeHr && <BirthdaysView people={people} now={now} />}
-          {view === "colaboradores" && canManagePeople && <PeopleView people={people} setPeople={setPeople} roleNames={roles.map((r) => r.name)} setModal={setModal} showNotice={showNotice} />}
+          {view === "colaboradores" && (canManagePeople || canSeeHr) && <PeopleView people={people} setPeople={setPeople} roleNames={roles.map((r) => r.name)} setModal={setModal} showNotice={showNotice} canManageAccess={canManagePeople} canEditData={canSeeHr || canManagePeople} />}
           {view === "cargos" && canManageRoles && <RolesView roles={roles} people={people} apps={apps.map((a) => ({ id: a.id, name: a.name }))} onSave={(role, prev) => { setRoles((list) => list.some((r) => r.id === role.id) ? list.map((r) => (r.id === role.id ? role : r)) : [...list, role]); if (prev && prev !== role.name) setPeople((list) => list.map((p) => ({ ...p, roles: p.roles.map((n) => (n === prev ? role.name : n)) }))); showNotice(prev ? `Cargo ${role.name} atualizado.` : `Cargo ${role.name} criado.`); }} onDelete={(id) => { const name = roles.find((r) => r.id === id)?.name; const res = deleteRole(id, roles, people); setRoles(res.roles); setPeople(res.people); showNotice(`Cargo ${name} excluído.`); }} />}
           {view === "acessos" && canManagePeople && <AccessView access={access} setAccess={setAccess} showNotice={showNotice} />}
           {view === "gestao" && canManageApps && <ManagementView onSelect={setSelectedApp} />}
         </main>
       </div>
 
+      {profileOpen && <ProfileDialog me={people.find((p) => p.email === currentUser.email) ?? { name: currentUser.name, email: currentUser.email, area: "", roles: currentUser.roles, status: "Ativo", initials }} onClose={() => setProfileOpen(false)} onSave={(data) => { setPeople((list) => list.some((p) => p.email === currentUser.email) ? list.map((p) => (p.email === currentUser.email ? { ...p, ...data } : p)) : [...list, { name: currentUser.name, email: currentUser.email, area: "", roles: currentUser.roles, status: "Ativo", initials, ...data }]); setProfileOpen(false); showNotice("Seus dados foram atualizados."); }} />}
       <ApplicationDialog app={selectedApp} onClose={() => setSelectedApp(null)} onLaunch={setLaunching} />
       <LaunchOverlay app={launching} onDone={() => setLaunching(null)} />
       <ActionDialog modal={modal} setModal={setModal} people={people} onConfirm={(kind, email) => {
@@ -409,17 +414,59 @@ function ApplicationsView({ apps: visibleApps, query, setQuery, category, setCat
   </div>;
 }
 
-function PeopleView({ people, setPeople, roleNames, setModal, showNotice }: { people: Person[]; setPeople: React.Dispatch<React.SetStateAction<Person[]>>; roleNames: string[]; setModal: (value: ModalState) => void; showNotice: (message: string) => void }) {
+type PersonData = Pick<Person, "phone" | "birthDate" | "hireDate" | "area">;
+
+function ProfileDialog({ me, onClose, onSave }: { me: Person; onClose: () => void; onSave: (data: Pick<Person, "phone" | "birthDate">) => void }) {
+  const [phone, setPhone] = useState(me.phone ?? "");
+  const [birthDate, setBirthDate] = useState(me.birthDate ?? "");
+  return <Dialog open onOpenChange={(o) => !o && onClose()}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>Meu perfil</DialogTitle><DialogDescription>Nome e e-mail vêm do seu login corporativo e não podem ser alterados aqui.</DialogDescription></DialogHeader>
+    <div className="space-y-3 py-2">
+      <label className="block text-xs font-medium">Nome<Input className="mt-1" value={me.name} readOnly disabled /></label>
+      <label className="block text-xs font-medium">E-mail corporativo<Input className="mt-1" value={me.email} readOnly disabled /></label>
+      <label className="block text-xs font-medium">Telefone<Input className="mt-1" type="tel" placeholder="(11) 90000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
+      <label className="block text-xs font-medium">Data de nascimento<Input className="mt-1" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} /></label>
+      <p className="text-[11px] text-muted-foreground">Sua data de nascimento só é visível para o RH e o DP.</p>
+    </div>
+    <DialogFooter><Button variant="outline" onClick={onClose}>Cancelar</Button><Button onClick={() => onSave({ phone: phone || undefined, birthDate: birthDate || undefined })}>Salvar</Button></DialogFooter></DialogContent></Dialog>;
+}
+
+function PersonDataDialog({ person, onClose, onSave }: { person: Person | null; onClose: () => void; onSave: (data: Person) => void }) {
+  const isNew = !person;
+  const [login, setLogin] = useState("");
+  const [area, setArea] = useState(person?.area ?? "");
+  const [phone, setPhone] = useState(person?.phone ?? "");
+  const [birthDate, setBirthDate] = useState(person?.birthDate ?? "");
+  const [hireDate, setHireDate] = useState(person?.hireDate ?? "");
+  const id = isNew ? identityFromLogin(login) : { name: person.name, email: person.email };
+  const valid = isNew ? /^[a-z]+\.[a-z]+$/i.test(login.trim()) && area.trim() : true;
+  return <Dialog open onOpenChange={(o) => !o && onClose()}><DialogContent className="max-w-lg"><DialogHeader><DialogTitle>{isNew ? "Novo colaborador" : `Dados cadastrais de ${person.name}`}</DialogTitle><DialogDescription>{isNew ? "Informe o login corporativo (nome.sobrenome). Nome e e-mail são gerados automaticamente. Funções e acessos são definidos depois pela Coordenação." : "Dados cadastrais. Funções e acessos não são alterados aqui."}</DialogDescription></DialogHeader>
+    <div className="space-y-3 py-2">
+      {isNew && <label className="block text-xs font-medium">Login corporativo<Input className="mt-1" placeholder="nome.sobrenome" value={login} onChange={(e) => setLogin(e.target.value)} /></label>}
+      <div className="grid grid-cols-2 gap-3"><label className="block text-xs font-medium">Nome<Input className="mt-1" value={id.name} readOnly disabled /></label><label className="block text-xs font-medium">E-mail<Input className="mt-1" value={login || !isNew ? id.email : ""} readOnly disabled /></label></div>
+      <div className="grid grid-cols-2 gap-3"><label className="block text-xs font-medium">Área / setor<Input className="mt-1" placeholder="Ex.: Monitoramento" value={area} onChange={(e) => setArea(e.target.value)} /></label><label className="block text-xs font-medium">Telefone<Input className="mt-1" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label></div>
+      <div className="grid grid-cols-2 gap-3"><label className="block text-xs font-medium">Data de nascimento<Input className="mt-1" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} /></label><label className="block text-xs font-medium">Data de admissão<Input className="mt-1" type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} /></label></div>
+    </div>
+    <DialogFooter><Button variant="outline" onClick={onClose}>Cancelar</Button><Button disabled={!valid} onClick={() => { const data: PersonData = { area: area.trim(), phone: phone || undefined, birthDate: birthDate || undefined, hireDate: hireDate || undefined }; onSave(isNew ? { ...id, roles: [], status: "Pendente", initials: id.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(), ...data } : { ...person, ...data }); }}>{isNew ? "Cadastrar" : "Salvar dados"}</Button></DialogFooter></DialogContent></Dialog>;
+}
+
+function PeopleView({ people, setPeople, roleNames, setModal, showNotice, canManageAccess, canEditData }: { people: Person[]; setPeople: React.Dispatch<React.SetStateAction<Person[]>>; roleNames: string[]; setModal: (value: ModalState) => void; showNotice: (message: string) => void; canManageAccess: boolean; canEditData: boolean }) {
   const [editing, setEditing] = useState<Person | null>(null);
   const [draftRoles, setDraftRoles] = useState<string[]>([]);
+  const [dataFor, setDataFor] = useState<Person | null | "new">(null);
   const toggle = (r: string) => setDraftRoles((list) => (list.includes(r) ? list.filter((x) => x !== r) : [...list, r]));
+  const pending = people.filter((p) => p.status === "Pendente");
   return <div className="space-y-5">
+    {dataFor && <PersonDataDialog person={dataFor === "new" ? null : dataFor} onClose={() => setDataFor(null)} onSave={(p) => { if (dataFor === "new" && people.some((x) => x.email === p.email)) { showNotice(`${p.email} já está cadastrado.`); return; } setPeople((list) => dataFor === "new" ? [...list, p] : list.map((x) => (x.email === p.email ? p : x))); showNotice(dataFor === "new" ? `${p.name} cadastrado. Aguardando a Coordenação liberar o acesso.` : `Dados de ${p.name} atualizados.`); setDataFor(null); }} />}
     {editing && <Dialog open onOpenChange={(o) => !o && setEditing(null)}><DialogContent className="max-w-lg"><DialogHeader><DialogTitle>Funções de {editing.name}</DialogTitle><DialogDescription>Um colaborador pode ter várias funções. Ele verá todas as áreas do portal liberadas para qualquer uma delas. As permissões dentro de cada sistema continuam sendo definidas no próprio sistema.</DialogDescription></DialogHeader><div className="grid grid-cols-2 gap-2">{roleNames.map((r) => <label key={r} className={cn("flex items-center gap-2 rounded-md border p-3 text-sm", draftRoles.includes(r) && "border-primary bg-accent")}><Checkbox checked={draftRoles.includes(r)} onCheckedChange={() => toggle(r)} />{r}</label>)}</div><DialogFooter><Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button><Button disabled={!draftRoles.length} onClick={() => { setPeople((list) => list.map((p) => (p.email === editing.email ? { ...p, roles: draftRoles } : p))); showNotice(`Funções de ${editing.name} atualizadas.`); setEditing(null); }}>Salvar funções</Button></DialogFooter></DialogContent></Dialog>}
-    <section className="rounded-lg border border-warning/25 bg-warning-soft p-4"><div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-md bg-warning text-warning-foreground"><UserCheck className="size-5" /></span><div className="min-w-0"><strong className="text-sm">{people.filter((p) => p.status === "Pendente").length ? `${people.filter((p) => p.status === "Pendente").length} cadastro(s) aguardando aprovação` : "Nenhum cadastro pendente"}</strong><p className="mt-0.5 text-xs text-muted-foreground">Revise os dados antes de liberar o acesso ao portal.</p></div>{people.find((p) => p.status === "Pendente") && <Button size="sm" onClick={() => setModal({ kind: "approve", email: people.find((p) => p.status === "Pendente")!.email })}>Revisar</Button>}</div></section>
-    <div className="grid gap-3 sm:grid-cols-3"><Metric value={String(people.filter((p) => p.status === "Ativo").length)} label="Colaboradores ativos" icon={Users} /><Metric value={String(people.filter((p) => p.status === "Pendente").length)} label="Aguardando aprovação" icon={Clock3} /><Metric value={String(people.filter((p) => p.status === "Bloqueado").length)} label="Contas bloqueadas" icon={LockKeyhole} /></div>
+    {!canManageAccess && <section className="rounded-lg border border-info/20 bg-info-soft p-4 text-xs leading-5 text-muted-foreground"><strong className="text-foreground">Modo RH/DP:</strong> você pode cadastrar colaboradores e editar dados cadastrais. Aprovação, funções e bloqueios são feitos pela Coordenação.</section>}
+    {canManageAccess && <section className="rounded-lg border border-warning/25 bg-warning-soft p-4"><div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-md bg-warning text-warning-foreground"><UserCheck className="size-5" /></span><div className="min-w-0"><strong className="text-sm">{pending.length ? `${pending.length} cadastro(s) aguardando aprovação` : "Nenhum cadastro pendente"}</strong><p className="mt-0.5 text-xs text-muted-foreground">Revise os dados antes de liberar o acesso ao portal.</p></div>{pending[0] && <Button size="sm" onClick={() => setModal({ kind: "approve", email: pending[0]!.email })}>Revisar</Button>}</div></section>}
+    <div className="grid gap-3 sm:grid-cols-3"><Metric value={String(people.filter((p) => p.status === "Ativo").length)} label="Colaboradores ativos" icon={Users} /><Metric value={String(pending.length)} label="Aguardando aprovação" icon={Clock3} /><Metric value={String(people.filter((p) => p.status === "Bloqueado").length)} label="Contas bloqueadas" icon={LockKeyhole} /></div>
     <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
-      <div className="grid gap-3 border-b p-4 md:grid-cols-[minmax(0,1fr)_180px_auto]"><label className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input placeholder="Buscar nome ou e-mail..." className="pl-9" /></label><Select defaultValue="todos"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todos os status</SelectItem><SelectItem value="ativo">Ativos</SelectItem><SelectItem value="pendente">Pendentes</SelectItem><SelectItem value="bloqueado">Bloqueados</SelectItem></SelectContent></Select><Button variant="outline"><SlidersHorizontal /> Filtrar</Button></div>
-      <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead className="bg-muted/60 text-muted-foreground"><tr><th className="px-5 py-3 font-medium">Colaborador</th><th className="px-4 py-3 font-medium">Área</th><th className="px-4 py-3 font-medium">Funções no portal</th><th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3 text-right font-medium">Ações</th></tr></thead><tbody>{people.map((person) => <tr key={person.email} className="border-t hover:bg-muted/30"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-full bg-muted font-bold text-primary">{person.initials}</span><div><strong className="block text-sm">{person.name}</strong><span className="text-muted-foreground">{person.email}</span></div></div></td><td className="px-4 py-4">{person.area}</td><td className="px-4 py-4"><div className="flex max-w-64 flex-wrap gap-1">{person.roles.map((r) => <Badge key={r} variant="outline">{r}</Badge>)}</div></td><td className="px-4 py-4"><StatusBadge status={person.status} /></td><td className="px-4 py-4"><div className="flex justify-end gap-1">{person.status === "Pendente" ? <Button size="sm" onClick={() => setModal({ kind: "approve", email: person.email })}>Aprovar</Button> : <><Button variant="ghost" size="icon" onClick={() => { setEditing(person); setDraftRoles(person.roles); }} aria-label={`Editar ${person.name}`}><Settings /></Button>{person.status === "Bloqueado" ? <Button variant="outline" size="sm" onClick={() => setModal({ kind: "unblock", email: person.email })}>Desbloquear</Button> : <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setModal({ kind: "block", email: person.email })} aria-label={`Bloquear ${person.name}`}><LockKeyhole /></Button>}</>}</div></td></tr>)}</tbody></table></div>
+      <div className="grid gap-3 border-b p-4 md:grid-cols-[minmax(0,1fr)_180px_auto]"><label className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input placeholder="Buscar nome ou e-mail..." className="pl-9" /></label><Select defaultValue="todos"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todos os status</SelectItem><SelectItem value="ativo">Ativos</SelectItem><SelectItem value="pendente">Pendentes</SelectItem><SelectItem value="bloqueado">Bloqueados</SelectItem></SelectContent></Select>{canEditData ? <Button onClick={() => setDataFor("new")}><Plus /> Novo colaborador</Button> : <span />}</div>
+      <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead className="bg-muted/60 text-muted-foreground"><tr><th className="px-5 py-3 font-medium">Colaborador</th><th className="px-4 py-3 font-medium">Área</th><th className="px-4 py-3 font-medium">Telefone</th><th className="px-4 py-3 font-medium">Funções no portal</th><th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3 text-right font-medium">Ações</th></tr></thead><tbody>{people.map((person) => <tr key={person.email} className="border-t hover:bg-muted/30"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-full bg-muted font-bold text-primary">{person.initials}</span><div><strong className="block text-sm">{person.name}</strong><span className="text-muted-foreground">{person.email}</span></div></div></td><td className="px-4 py-4">{person.area || "—"}</td><td className="px-4 py-4">{person.phone ?? "—"}</td><td className="px-4 py-4"><div className="flex max-w-64 flex-wrap gap-1">{person.roles.length ? person.roles.map((r) => <Badge key={r} variant="outline">{r}</Badge>) : <span className="text-muted-foreground">A definir</span>}</div></td><td className="px-4 py-4"><StatusBadge status={person.status} /></td><td className="px-4 py-4"><div className="flex justify-end gap-1">
+        {canEditData && <Button variant="ghost" size="icon" onClick={() => setDataFor(person)} aria-label={`Dados cadastrais de ${person.name}`} title="Dados cadastrais"><FileText /></Button>}
+        {canManageAccess && (person.status === "Pendente" ? <Button size="sm" onClick={() => setModal({ kind: "approve", email: person.email })}>Aprovar</Button> : <><Button variant="ghost" size="icon" onClick={() => { setEditing(person); setDraftRoles(person.roles); }} aria-label={`Funções de ${person.name}`} title="Funções no portal"><Settings /></Button>{person.status === "Bloqueado" ? <Button variant="outline" size="sm" onClick={() => setModal({ kind: "unblock", email: person.email })}>Desbloquear</Button> : <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setModal({ kind: "block", email: person.email })} aria-label={`Bloquear ${person.name}`}><LockKeyhole /></Button>}</>)}
+      </div></td></tr>)}</tbody></table></div>
     </section>
   </div>;
 }

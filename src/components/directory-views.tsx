@@ -46,11 +46,11 @@ export function DirectoryView({ people, focus }: { people: Person[]; focus?: str
   const [q, setQ] = useState("");
   const [area, setArea] = useState("Todas");
   const areas = ["Todas", ...Array.from(new Set(people.map((p) => p.area))).sort()];
-  const list = people.filter((p) => p.status === "Ativo" && (area === "Todas" || p.area === area) && (!q.trim() || matches(`${p.name} ${p.email} ${p.area} ${p.roles.join(" ")} ${p.extension ?? ""}`, q)));
+  const list = people.filter((p) => p.status === "Ativo" && (area === "Todas" || p.area === area) && (!q.trim() || matches(`${p.name} ${p.email} ${p.area} ${p.roles.join(" ")} ${p.phone ?? ""}`, q)));
   return (
     <div className="space-y-5">
       <div className="grid gap-3 rounded-lg border bg-card p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_220px]">
-        <label className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nome, cargo, setor ou ramal…" className="h-10 pl-9" aria-label="Buscar colaborador" /></label>
+        <label className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nome, cargo, setor ou telefoneal…" className="h-10 pl-9" aria-label="Buscar colaborador" /></label>
         <select value={area} onChange={(e) => setArea(e.target.value)} aria-label="Filtrar por setor" className="h-10 rounded-md border bg-background px-3 text-sm">{areas.map((a) => <option key={a}>{a}</option>)}</select>
       </div>
       <p className="text-xs text-muted-foreground"><strong className="text-foreground">{list.length}</strong> colaboradores</p>
@@ -61,7 +61,7 @@ export function DirectoryView({ people, focus }: { people: Person[]; focus?: str
             <div className="mt-3 flex flex-wrap gap-1">{p.roles.map((r) => <Badge key={r} variant="outline" className="text-[10px]">{r}</Badge>)}</div>
             <div className="mt-4 space-y-1.5 text-xs text-muted-foreground">
               <a href={`mailto:${p.email}`} className="flex items-center gap-2 hover:text-primary"><Mail className="size-3.5" />{p.email}</a>
-              {p.extension && <span className="flex items-center gap-2"><Phone className="size-3.5" />Ramal {p.extension}</span>}
+              {p.phone && <span className="flex items-center gap-2"><Phone className="size-3.5" />{p.phone}</span>}
             </div>
           </div>
         ))}
