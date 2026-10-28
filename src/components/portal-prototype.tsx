@@ -91,7 +91,7 @@ import {
 } from "@/components/portal-communications";
 import { RolesView } from "@/components/roles-view";
 import { BirthdaysView, DirectoryView, GlobalSearch, type SearchHit } from "@/components/directory-views";
-import { canSeeHrData, readStats, toggleFavorite, type DirectoryEntry } from "@/lib/directory";
+import { canSeeHrData, identityFromLogin, readStats, toggleFavorite, type DirectoryEntry } from "@/lib/directory";
 import { deleteRole, hasPermission, seedRoles, type Role } from "@/lib/roles";
 
 type View = "inicio" | "avisos" | "treinamentos" | "aplicacoes" | "colaboradores" | "acessos" | "gestao" | "cargos" | "diretorio" | "aniversarios";
