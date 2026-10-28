@@ -159,7 +159,9 @@ type ModalState = null | { kind: "add" } | { kind: "approve" | "block" | "unbloc
 export function viewsAllowed(p: { canManageRoles: boolean; canManagePeople: boolean; canManageApps: boolean; canSeeHr?: boolean }): View[] {
   const v: View[] = ["inicio", "avisos", "aplicacoes", "treinamentos", "diretorio"];
   if (p.canSeeHr) v.push("aniversarios");
-  if (p.canManagePeople) v.push("colaboradores", "acessos");
+  // RH/DP manage collaborator data (not permissions), so they also see the people list.
+  if (p.canManagePeople || p.canSeeHr) v.push("colaboradores");
+  if (p.canManagePeople) v.push("acessos");
   if (p.canManageApps) v.push("gestao");
   if (p.canManageRoles) v.push("cargos");
   return v;
@@ -333,6 +335,7 @@ export function PortalPrototype() {
             <Badge variant="outline" className="hidden h-8 gap-2 border-success/20 bg-success-soft text-success xl:flex"><span className="size-1.5 rounded-full bg-success" /> Rede interna</Badge>
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label={dark ? "Usar tema claro" : "Usar tema escuro"}>{dark ? <Sun /> : <Moon />}</Button>
             <Button variant="ghost" size="icon" aria-label="Avisos" onClick={() => navigate("avisos")} className="relative"><Bell />{unreadCount > 0 && <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-brand-orange text-[9px] font-bold text-primary-foreground">{unreadCount}</span>}</Button>
+            <Button variant="ghost" size="sm" onClick={() => setProfileOpen(true)} aria-label="Meu perfil"><UserCheck /><span className="hidden sm:inline">Meu perfil</span></Button>
             <span className="hidden h-6 w-px bg-border sm:block" />
             {liveUser ? <span className="hidden items-center gap-2 px-2 md:flex"><span className="grid size-8 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{initials}</span><strong className="text-xs">{currentUser.name}</strong></span> : <label className="relative hidden items-center gap-2 rounded-md px-2 py-1 hover:bg-muted md:flex" title="Simular usuário (demonstração do /oauth2/userinfo)"><span className="grid size-8 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{initials}</span><span><strong className="block text-xs">{currentUser.name}</strong><small className="block text-[10px] text-muted-foreground">{profile.label} · {currentUser.groups.length} grupos</small></span><ChevronDown className="size-3 text-muted-foreground" /><select aria-label="Simular usuário" className="absolute inset-0 cursor-pointer opacity-0" value={profileIndex} onChange={(e) => { setProfileIndex(Number(e.target.value)); setAckLoaded(false); setShowMandatory(true); }}>{demoProfiles.map((p, i) => <option key={p.email} value={i}>{p.name} — {p.label}</option>)}</select></label>}
           </div>
@@ -350,7 +353,7 @@ export function PortalPrototype() {
           {view === "aplicacoes" && <ApplicationsView favorites={favorites} onToggleFav={toggleFav} apps={filteredApps} query={query} setQuery={setQuery} category={category} setCategory={setCategory} onSelect={setSelectedApp} />}
           {view === "diretorio" && <DirectoryView people={people} focus={focusPerson} />}
           {view === "aniversarios" && canSeeHr && <BirthdaysView people={people} now={now} />}
-          {view === "colaboradores" && canManagePeople && <PeopleView people={people} setPeople={setPeople} roleNames={roles.map((r) => r.name)} setModal={setModal} showNotice={showNotice} />}
+          {view === "colaboradores" && (canManagePeople || canSeeHr) && <PeopleView people={people} setPeople={setPeople} roleNames={roles.map((r) => r.name)} setModal={setModal} showNotice={showNotice} canManageAccess={canManagePeople} canEditData={canSeeHr || canManagePeople} />}
           {view === "cargos" && canManageRoles && <RolesView roles={roles} people={people} apps={apps.map((a) => ({ id: a.id, name: a.name }))} onSave={(role, prev) => { setRoles((list) => list.some((r) => r.id === role.id) ? list.map((r) => (r.id === role.id ? role : r)) : [...list, role]); if (prev && prev !== role.name) setPeople((list) => list.map((p) => ({ ...p, roles: p.roles.map((n) => (n === prev ? role.name : n)) }))); showNotice(prev ? `Cargo ${role.name} atualizado.` : `Cargo ${role.name} criado.`); }} onDelete={(id) => { const name = roles.find((r) => r.id === id)?.name; const res = deleteRole(id, roles, people); setRoles(res.roles); setPeople(res.people); showNotice(`Cargo ${name} excluído.`); }} />}
           {view === "acessos" && canManagePeople && <AccessView access={access} setAccess={setAccess} showNotice={showNotice} />}
           {view === "gestao" && canManageApps && <ManagementView onSelect={setSelectedApp} />}
