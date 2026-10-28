@@ -132,12 +132,12 @@ const apps: AppItem[] = appsData.map((a) => ({
 type Person = DirectoryEntry & { status: string; initials: string };
 
 const seedPeople: Person[] = [
-  { name: "Marina Alves", email: "marina.alves@empresa.com.br", area: "Monitoramento", roles: ["Coordenação", "Monitoramento"], status: "Ativo", initials: "MA", extension: "2101", birthDate: "1988-11-03", hireDate: "2016-03-14" },
-  { name: "Rafael Costa", email: "rafael.costa@empresa.com.br", area: "Operacional", roles: ["Operacional", "Monitoramento"], status: "Ativo", initials: "RC", extension: "2230", birthDate: "1995-10-29", hireDate: "2021-10-30" },
-  { name: "Ana Souza", email: "ana.souza@empresa.com.br", area: "RH", roles: ["RH"], status: "Ativo", initials: "AS", extension: "2050", birthDate: "1990-12-12", hireDate: "2019-02-01" },
-  { name: "Beatriz Lima", email: "beatriz.lima@empresa.com.br", area: "Comercial", roles: ["Comercial", "Licitações", "Marketing"], status: "Ativo", initials: "BL", extension: "2310", birthDate: "1992-11-20", hireDate: "2022-07-04" },
-  { name: "Carlos Nunes", email: "carlos.nunes@empresa.com.br", area: "Técnico", roles: ["Técnico"], status: "Bloqueado", initials: "CN", extension: "2405", birthDate: "1985-01-15", hireDate: "2014-05-20" },
-  { name: "João Pereira", email: "joao.pereira@empresa.com.br", area: "Licitações", roles: ["Licitações"], status: "Pendente", initials: "JP" },
+  { name: "Marina Alves", email: "marina.alves@safenettecnologia.com.br", area: "Monitoramento", roles: ["Coordenação", "Monitoramento"], status: "Ativo", initials: "MA", phone: "(11) 98765-2101", birthDate: "1988-11-03", hireDate: "2016-03-14" },
+  { name: "Rafael Costa", email: "rafael.costa@safenettecnologia.com.br", area: "Operacional", roles: ["Operacional", "Monitoramento"], status: "Ativo", initials: "RC", phone: "(11) 98765-2230", birthDate: "1995-10-29", hireDate: "2021-10-30" },
+  { name: "Ana Souza", email: "ana.souza@safenettecnologia.com.br", area: "RH", roles: ["RH"], status: "Ativo", initials: "AS", phone: "(11) 98765-2050", birthDate: "1990-12-12", hireDate: "2019-02-01" },
+  { name: "Beatriz Lima", email: "beatriz.lima@safenettecnologia.com.br", area: "Comercial", roles: ["Comercial", "Licitações", "Marketing"], status: "Ativo", initials: "BL", phone: "(11) 98765-2310", birthDate: "1992-11-20", hireDate: "2022-07-04" },
+  { name: "Carlos Nunes", email: "carlos.nunes@safenettecnologia.com.br", area: "Técnico", roles: ["Técnico"], status: "Bloqueado", initials: "CN", phone: "(11) 98765-2405", birthDate: "1985-01-15", hireDate: "2014-05-20" },
+  { name: "João Pereira", email: "joao.pereira@safenettecnologia.com.br", area: "Licitações", roles: ["Licitações"], status: "Pendente", initials: "JP" },
 ];
 
 const navItems: Array<{ id: View; label: string; icon: ComponentType<{ className?: string }> }> = [
@@ -245,7 +245,7 @@ export function PortalPrototype() {
     ...visibleApps.map((a) => ({ kind: "app" as const, id: a.id, title: a.name, subtitle: `${a.category} · ${a.description}` })),
     ...announcements.filter((n) => isActive(n, now) && isRecipient(n, currentUser)).map((n) => ({ kind: "aviso" as const, id: n.id, title: n.title, subtitle: n.summary })),
     ...courses.map((c, i) => ({ kind: "treinamento" as const, id: String(i), title: c.curso, subtitle: `${c.fabricante} · ${c.modalidade}` })),
-    ...people.filter((p) => p.status === "Ativo").map((p) => ({ kind: "pessoa" as const, id: p.email, title: p.name, subtitle: `${p.area} · ${p.roles.join(", ")}${p.extension ? ` · Ramal ${p.extension}` : ""}` })),
+    ...people.filter((p) => p.status === "Ativo").map((p) => ({ kind: "pessoa" as const, id: p.email, title: p.name, subtitle: `${p.area} · ${p.roles.join(", ")}${p.phone ? ` · ${p.phone}` : ""}` })),
   ], [visibleApps, announcements, courses, people, now, currentUser]);
   function pickHit(h: SearchHit) {
     if (h.kind === "app") { const a = visibleApps.find((x) => x.id === h.id); if (a) setSelectedApp(a); }
@@ -290,7 +290,7 @@ export function PortalPrototype() {
     colaboradores: { title: "Colaboradores", description: "Aprove cadastros e acompanhe a situação das contas." },
     acessos: { title: "Gestão de acessos", description: "Defina quais ferramentas cada colaborador visualiza no portal." },
     cargos: { title: "Cargos e permissões", description: "Crie cargos e defina o que cada um vê e administra no portal." },
-    diretorio: { title: "Diretório de colaboradores", description: "Encontre colegas por nome, setor, cargo ou ramal." },
+    diretorio: { title: "Diretório de colaboradores", description: "Encontre colegas por nome, setor, cargo ou telefone." },
     aniversarios: { title: "Aniversários e tempo de casa", description: "Datas comemorativas da equipe (exclusivo RH e DP)." },
     gestao: { title: "Gestão de aplicações", description: "Cadastre ferramentas e escolha como cada acesso será realizado." },
   };

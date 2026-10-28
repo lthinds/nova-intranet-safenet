@@ -1,6 +1,6 @@
 // Diretório de colaboradores, favoritos, busca (sem IA) e dados restritos ao RH/DP.
 
-export type DirectoryEntry = { name: string; email: string; area: string; roles: string[]; extension?: string; phone?: string; birthDate?: string; hireDate?: string };
+export type DirectoryEntry = { name: string; email: string; area: string; roles: string[]; phone?: string; birthDate?: string; hireDate?: string };
 
 /** Aniversários e tempo de casa: somente RH e DP. */
 export const HR_DATA_ROLES = ["RH", "DP"];
@@ -48,4 +48,12 @@ export function toggleFavorite(list: string[], id: string) {
 export function readStats(recipients: Array<{ email: string }>, acksByEmail: Record<string, string[]>, noticeId: string) {
   const read = recipients.filter((p) => (acksByEmail[p.email] ?? []).includes(noticeId)).length;
   return { read, total: recipients.length, pending: recipients.length - read };
+}
+
+/** Domínio corporativo fixo: o login nome.sobrenome vira nome.sobrenome@safenettecnologia.com.br. */
+export const EMAIL_DOMAIN = "safenettecnologia.com.br";
+export function identityFromLogin(login: string) {
+  const user = login.trim().toLowerCase().split("@")[0]!;
+  const name = user.split(".").filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  return { name, email: `${user}@${EMAIL_DOMAIN}` };
 }
