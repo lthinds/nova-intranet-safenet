@@ -14,7 +14,9 @@ export const seedRoles: Role[] = [
   { id: "rh", name: "RH", apps: [], permissions: ["publicar_avisos"] },
   { id: "dp", name: "DP", apps: [], permissions: ["publicar_avisos"] },
   { id: "marketing", name: "Marketing", apps: [], permissions: ["publicar_avisos"] },
-  { id: "monitoramento", name: "Monitoramento", apps: [], permissions: [] },
+  { id: "monitoramento", name: "Monitoramento", apps: ["frota"], permissions: [] },
+  { id: "frota", name: "Frota", apps: ["frota"], permissions: [] },
+  { id: "supervisor", name: "Supervisor", apps: [], permissions: [] },
   { id: "operacional", name: "Operacional", apps: [], permissions: [] },
   { id: "comercial", name: "Comercial", apps: [], permissions: [] },
   { id: "licitacoes", name: "Licitações", apps: [], permissions: [] },
@@ -39,4 +41,20 @@ export function deleteRole<P extends { roles: string[] }>(roleId: string, roles:
 /** True when deleting/editing would leave no role able to manage roles. */
 export function wouldLockOut(roles: Role[]) {
   return !roles.some((r) => r.permissions.includes("gerenciar_cargos"));
+}
+
+/** Cargo modificador: sozinho não concede nada; somado a uma área, dá poderes de supervisão nela. */
+export const SUPERVISOR = "Supervisor";
+/** Cargos que não são áreas operacionais supervisionáveis. */
+const NON_AREAS = [SUPERVISOR, "Coordenação"];
+
+/** Áreas que o colaborador supervisiona (pode ser mais de uma). Coordenação supervisiona todas. */
+export function supervisedAreas(userRoles: string[], allAreas: string[]): string[] {
+  if (userRoles.includes("Coordenação")) return allAreas;
+  if (!userRoles.includes(SUPERVISOR)) return [];
+  return userRoles.filter((r) => !NON_AREAS.includes(r) && allAreas.includes(r));
+}
+
+export function canManageArea(userRoles: string[], area: string, allAreas: string[]) {
+  return supervisedAreas(userRoles, allAreas).includes(area);
 }

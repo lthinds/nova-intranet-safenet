@@ -134,6 +134,7 @@ type Person = DirectoryEntry & { status: string; initials: string };
 const seedPeople: Person[] = [
   { name: "Marina Alves", email: "marina.alves@safenettecnologia.com.br", area: "Monitoramento", roles: ["Coordenação", "Monitoramento"], status: "Ativo", initials: "MA", phone: "(11) 98765-2101", birthDate: "1988-11-03", hireDate: "2016-03-14" },
   { name: "Rafael Costa", email: "rafael.costa@safenettecnologia.com.br", area: "Operacional", roles: ["Operacional", "Monitoramento"], status: "Ativo", initials: "RC", phone: "(11) 98765-2230", birthDate: "1995-10-29", hireDate: "2021-10-30" },
+  { name: "Paulo Mendes", email: "paulo.mendes@safenettecnologia.com.br", area: "Monitoramento", roles: ["Supervisor", "Monitoramento", "Frota"], status: "Ativo", initials: "PM", phone: "(11) 98765-2177", birthDate: "1987-06-08", hireDate: "2017-09-11" },
   { name: "Ana Souza", email: "ana.souza@safenettecnologia.com.br", area: "RH", roles: ["RH"], status: "Ativo", initials: "AS", phone: "(11) 98765-2050", birthDate: "1990-12-12", hireDate: "2019-02-01" },
   { name: "Beatriz Lima", email: "beatriz.lima@safenettecnologia.com.br", area: "Comercial", roles: ["Comercial", "Licitações", "Marketing"], status: "Ativo", initials: "BL", phone: "(11) 98765-2310", birthDate: "1992-11-20", hireDate: "2022-07-04" },
   { name: "Carlos Nunes", email: "carlos.nunes@safenettecnologia.com.br", area: "Técnico", roles: ["Técnico"], status: "Bloqueado", initials: "CN", phone: "(11) 98765-2405", birthDate: "1985-01-15", hireDate: "2014-05-20" },
