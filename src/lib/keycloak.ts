@@ -39,6 +39,7 @@ export async function fetchUserInfo(fallback: UserInfo): Promise<{ user: UserInf
 export const demoProfiles: Array<UserInfo & { label: string; roles: string[] }> = [
   { label: "Coordenadora", name: "Marina Alves", email: "marina.alves@safenettecnologia.com.br", roles: ["Coordenação", "Monitoramento"], groups: ["GS_App_frota", "GS_App_rel-monitoramento", "GS_App_monitoramento", "GS_App_dash-comercial", "GS_App_pregoes", "GS_App_painel-licitacoes", "GS_App_manuais", "GS_App_recrutamento"] },
   { label: "Operador de monitoramento", name: "Rafael Costa", email: "rafael.costa@safenettecnologia.com.br", roles: ["Operacional", "Monitoramento"], groups: ["GS_App_monitoramento", "GS_App_rel-monitoramento", "GS_App_frota"] },
+  { label: "Supervisor Monitoramento + Frota", name: "Paulo Mendes", email: "paulo.mendes@safenettecnologia.com.br", roles: ["Supervisor", "Monitoramento", "Frota"], groups: ["GS_App_monitoramento", "GS_App_rel-monitoramento", "GS_App_frota", "GS_App_manuais"] },
   { label: "RH", name: "Ana Souza", email: "ana.souza@safenettecnologia.com.br", roles: ["RH"], groups: ["GS_App_recrutamento"] },
   { label: "Comercial", name: "Beatriz Lima", email: "beatriz.lima@safenettecnologia.com.br", roles: ["Comercial", "Licitações"], groups: ["GS_App_dash-comercial", "GS_App_pregoes", "GS_App_painel-licitacoes"] },
 ];

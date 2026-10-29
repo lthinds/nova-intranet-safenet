@@ -34,7 +34,7 @@ export const appsData: AppItemData[] = [
   { id: "dahua", name: "Dahua Academy", description: "Agenda de treinamentos técnicos.", url: "https://www.dahuaacademy.com.br/agenda-de-treinamentos-dahua-technology", icon: "book", group: "Treinamentos", integration: "link", status: "disponivel" },
   { id: "hikvision", name: "Hikvision eLearning", description: "Portal de treinamento Hikvision.", url: "https://elearning.hikvision.com/br/", icon: "book", group: "Treinamentos", integration: "link", status: "disponivel" },
   { id: "intelbras", name: "Intelbras — Treinamentos", description: "Portal de treinamentos Intelbras.", url: "https://cursos.intelbras.com.br/portal/layout/927/intelbras/home.asp?V29ya3NwYWNlSUQ9MTI1MCZrdF9kaWRheGlzPXRvcA", icon: "book", group: "Treinamentos", integration: "link", status: "disponivel" },
-  { id: "manuais", name: "Manuais técnicos", description: "Biblioteca de procedimentos técnicos.", url: "/manuais", icon: "file", group: "Técnico", keycloakGroup: "GS_App_manuais", integration: "sso", status: "em_breve" },
+  { id: "manuais", name: "Manuais técnicos", description: "Biblioteca de procedimentos técnicos.", url: "/manuais", icon: "file", group: "Técnico", integration: "sso", status: "disponivel" },
   { id: "recrutamento", name: "Gestor de Recrutamento", description: "Vagas, currículos e candidatos.", url: INTRANET + "/rh/", icon: "users", group: "RH", keycloakGroup: "GS_App_recrutamento", integration: "sso", status: "disponivel" },
 ];
 

@@ -4,8 +4,8 @@ import { countMembers, deleteRole, hasPermission, seedRoles, wouldLockOut } from
 const people = [{ roles: ["RH", "DP"] }, { roles: ["RH"] }, { roles: ["Técnico"] }];
 
 describe("cargos", () => {
-  it("Frota não existe nos cargos iniciais", () => {
-    expect(seedRoles.map((r) => r.name)).not.toContain("Frota");
+  it("Frota e Supervisor existem nos cargos iniciais", () => {
+    expect(seedRoles.map((r) => r.name)).toEqual(expect.arrayContaining(["Frota", "Supervisor"]));
   });
   it("só Coordenação gerencia cargos inicialmente", () => {
     expect(seedRoles.filter((r) => r.permissions.includes("gerenciar_cargos")).map((r) => r.name)).toEqual(["Coordenação"]);
