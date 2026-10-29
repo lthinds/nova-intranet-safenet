@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import { appsData, deriveGroups, OTHER_GROUP } from "@/data/apps";
 import { trainingsData } from "@/data/trainings";
 import { canSeeApp, demoProfiles, fetchUserInfo, SIGN_OUT_URL } from "@/lib/keycloak";
@@ -402,7 +402,7 @@ export function PortalPrototype() {
   );
 }
 
-function HomeView({ apps, navigate, onSelect, favorites, onToggleFav, side }: { favorites: string[]; onToggleFav: (id: string) => void; apps: AppItem[]; navigate: (view: View) => void; onSelect: (app: AppItem) => void; side: React.ReactNode }) {
+function HomeView({ apps, navigate, onSelect, favorites, onToggleFav, side }: { favorites: string[]; onToggleFav: (id: string) => void; apps: AppItem[]; navigate: (view: View) => void; onSelect: (app: AppItem) => void; side: ReactNode }) {
   const sorted = [...apps].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   return <div className="space-y-7">
     <HeroCarousel onOpenNotices={() => navigate("avisos")} />
