@@ -380,7 +380,7 @@ export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate,
 }
 
 /** Same shape as the current intranet feed (/api/dados/treinamentos → { cursos: [...] }). */
-export type TrainingCourse = { curso: string; fabricante: string; data_inicio: string; data_fim: string; hora_inicio?: string; hora_fim?: string; modalidade: string; gratuito: boolean; setor?: string; link_inscricao: string };
+export type TrainingCourse = { curso: string; fabricante: string; data_inicio: string; data_fim: string; hora_inicio?: string; hora_fim?: string; modalidade: string; gratuito: boolean; setor?: string | undefined; link_inscricao: string };
 
 export function makeSeedCourses(now: Date): TrainingCourse[] {
   const d = (offset: number) => new Date(now.getTime() + offset * DAY).toISOString().slice(0, 10);
@@ -397,33 +397,60 @@ export function daysUntil(iso: string, now: Date) {
   return Math.round((new Date(y, m - 1, d).getTime() - today.getTime()) / DAY);
 }
 
-export function TrainingsView({ courses, now }: { courses: TrainingCourse[]; now: Date }) {
-  const list = courses.filter((c) => daysUntil(c.data_fim, now) >= 0).sort((a, b) => a.data_inicio.localeCompare(b.data_inicio));
+export function TrainingsView({ courses, now, canCreate, onCreate, completed, onToggleDone }: { courses: TrainingCourse[]; now: Date; canCreate?: boolean; onCreate?: (c: TrainingCourse) => void; completed: string[]; onToggleDone: (curso: string) => void }) {
+  const [creating, setCreating] = useState(false);
+  const all = [...courses].sort((a, b) => a.data_inicio.localeCompare(b.data_inicio));
+  const suggested = all.filter((c) => !completed.includes(c.curso) && daysUntil(c.data_fim, now) >= 0);
+  const done = all.filter((c) => completed.includes(c.curso));
+  const card = (c: TrainingCourse, isDone: boolean) => {
+    const start = daysUntil(c.data_inicio, now);
+    const live = start <= 0;
+    return (
+      <article key={c.curso} className={cn("flex flex-col rounded-lg border bg-card p-5 shadow-sm", isDone && "opacity-80")}>
+        <div className="flex items-start justify-between gap-3">
+          <span className="grid size-10 place-items-center rounded-md bg-accent text-primary"><GraduationCap className="size-5" /></span>
+          {isDone ? <Badge variant="outline" className="border-success/20 bg-success-soft text-success">Concluído</Badge> : <div className={cn("rounded-md px-3 py-1.5 text-center", live ? "bg-brand-orange text-hero-foreground" : "bg-muted")}>{live ? <strong className="text-[10px] uppercase leading-tight">Acontecendo<br />agora</strong> : <><strong className="block text-lg leading-none">{start}</strong><span className="text-[10px] text-muted-foreground">{start === 1 ? "dia" : "dias"}</span></>}</div>}
+        </div>
+        <p className="mt-4 text-[10px] font-bold uppercase text-primary">{c.fabricante}</p>
+        <h3 className="font-display mt-1 text-sm font-bold">{c.curso}</h3>
+        <p className="mt-2 text-xs text-muted-foreground">{new Date(`${c.data_inicio}T12:00`).toLocaleDateString("pt-BR")}{c.data_fim !== c.data_inicio && ` a ${new Date(`${c.data_fim}T12:00`).toLocaleDateString("pt-BR")}`}{c.hora_inicio && ` · ${c.hora_inicio}–${c.hora_fim ?? ""}`}</p>
+        <div className="mt-3 flex flex-wrap gap-1.5"><Badge variant="outline">{c.modalidade}</Badge>{c.gratuito && <Badge variant="outline" className="border-success/20 bg-success-soft text-success">Gratuito</Badge>}{c.setor && <Badge variant="outline">{c.setor}</Badge>}</div>
+        <div className="mt-auto flex gap-2 pt-4">
+          {!isDone && <Button variant="outline" size="sm" className="flex-1" asChild><a href={c.link_inscricao} target="_blank" rel="noreferrer" onClick={(e) => c.link_inscricao === "#" && e.preventDefault()}>Inscrever-se <ExternalLink /></a></Button>}
+          <Button size="sm" variant={isDone ? "ghost" : "default"} className="flex-1" onClick={() => onToggleDone(c.curso)}>{isDone ? "Desmarcar" : "Marcar como feito"}</Button>
+        </div>
+      </article>
+    );
+  };
   return (
-    <div className="space-y-5">
-      <section className="grid gap-4 rounded-lg border border-dashed border-warning/40 bg-warning-soft p-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
-        <span className="grid size-10 place-items-center rounded-md bg-warning text-warning-foreground"><Database className="size-5" /></span>
-        <div><strong className="text-sm">Lista de treinamentos alimentada manualmente</strong><p className="mt-1 text-xs leading-5 text-muted-foreground">Sem atualização automática por enquanto. Os cursos são cadastrados diretamente na lista do portal pelo responsável. Os itens abaixo são exemplos.</p></div>
+    <div className="space-y-6">
+      <section>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="font-display text-base font-bold">Treinamentos ou cursos sugeridos</h2>{canCreate && <Button size="sm" onClick={() => setCreating(true)}><Plus /> Novo treinamento</Button>}</div>
+        {suggested.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{suggested.map((c) => card(c, false))}</div> : <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">Nenhum curso sugerido pendente.</p>}
       </section>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {list.map((c) => {
-          const start = daysUntil(c.data_inicio, now);
-          const live = start <= 0;
-          return (
-            <article key={c.curso} className="flex flex-col rounded-lg border bg-card p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <span className="grid size-10 place-items-center rounded-md bg-accent text-primary"><GraduationCap className="size-5" /></span>
-                <div className={cn("rounded-md px-3 py-1.5 text-center", live ? "bg-brand-orange text-hero-foreground" : "bg-muted")}>{live ? <strong className="text-[10px] uppercase leading-tight">Acontecendo<br />agora</strong> : <><strong className="block text-lg leading-none">{start}</strong><span className="text-[10px] text-muted-foreground">{start === 1 ? "dia" : "dias"}</span></>}</div>
-              </div>
-              <p className="mt-4 text-[10px] font-bold uppercase text-primary">{c.fabricante}</p>
-              <h3 className="font-display mt-1 text-sm font-bold">{c.curso}</h3>
-              <p className="mt-2 text-xs text-muted-foreground">{new Date(`${c.data_inicio}T12:00`).toLocaleDateString("pt-BR")}{c.data_fim !== c.data_inicio && ` a ${new Date(`${c.data_fim}T12:00`).toLocaleDateString("pt-BR")}`} · {c.hora_inicio}–{c.hora_fim}</p>
-              <div className="mt-3 flex flex-wrap gap-1.5"><Badge variant="outline">{c.modalidade}</Badge>{c.gratuito && <Badge variant="outline" className="border-success/20 bg-success-soft text-success">Gratuito</Badge>}{c.setor && <Badge variant="outline">{c.setor}</Badge>}</div>
-              <Button variant="outline" size="sm" className="mt-auto w-full" asChild><a href={c.link_inscricao} onClick={(e) => e.preventDefault()}>Inscrever-se <ExternalLink /></a></Button>
-            </article>
-          );
-        })}
-      </div>
+      <section>
+        <h2 className="font-display mb-3 text-base font-bold">Treinamentos concluídos <span className="text-sm font-normal text-muted-foreground">({done.length})</span></h2>
+        {done.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{done.map((c) => card(c, true))}</div> : <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Marque um curso como feito para ele aparecer aqui.</p>}
+      </section>
+      {creating && <CourseDialog onClose={() => setCreating(false)} onSave={(c) => { onCreate?.(c); setCreating(false); }} />}
     </div>
   );
+}
+
+function CourseDialog({ onClose, onSave }: { onClose: () => void; onSave: (c: TrainingCourse) => void }) {
+  const [f, setF] = useState({ curso: "", fabricante: "", data_inicio: "", data_fim: "", modalidade: "Online", setor: "", link_inscricao: "", gratuito: true });
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((x) => ({ ...x, [k]: e.target.value }));
+  const ok = f.curso.trim() && f.data_inicio;
+  return <Dialog open onOpenChange={(o) => !o && onClose()}><DialogContent className="max-w-lg">
+    <DialogHeader><DialogTitle>Novo treinamento ou curso</DialogTitle><DialogDescription>O card aparece em "Cursos sugeridos" para todos.</DialogDescription></DialogHeader>
+    <div className="space-y-3">
+      <Input placeholder="Nome do curso" value={f.curso} onChange={set("curso")} />
+      <Input placeholder="Instituição / fabricante" value={f.fabricante} onChange={set("fabricante")} />
+      <div className="grid grid-cols-2 gap-2"><label className="text-xs font-semibold">Início<Input type="date" value={f.data_inicio} onChange={set("data_inicio")} /></label><label className="text-xs font-semibold">Fim<Input type="date" value={f.data_fim} onChange={set("data_fim")} /></label></div>
+      <div className="grid grid-cols-2 gap-2"><Input placeholder="Modalidade" value={f.modalidade} onChange={set("modalidade")} /><Input placeholder="Setor (opcional)" value={f.setor} onChange={set("setor")} /></div>
+      <Input placeholder="Link de inscrição" value={f.link_inscricao} onChange={set("link_inscricao")} />
+      <label className="flex items-center gap-2 text-sm"><Switch checked={f.gratuito} onCheckedChange={(v) => setF((x) => ({ ...x, gratuito: v }))} /> Gratuito</label>
+    </div>
+    <DialogFooter><Button variant="outline" onClick={onClose}>Cancelar</Button><Button disabled={!ok} onClick={() => onSave({ ...f, curso: f.curso.trim(), data_fim: f.data_fim || f.data_inicio, setor: f.setor || undefined, link_inscricao: f.link_inscricao || "#" })}>Publicar</Button></DialogFooter>
+  </DialogContent></Dialog>;
 }
