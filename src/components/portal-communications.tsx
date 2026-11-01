@@ -380,7 +380,7 @@ export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate,
 }
 
 /** Same shape as the current intranet feed (/api/dados/treinamentos → { cursos: [...] }). */
-export type TrainingCourse = { curso: string; fabricante: string; data_inicio: string; data_fim: string; hora_inicio?: string; hora_fim?: string; modalidade: string; gratuito: boolean; setor?: string; link_inscricao: string };
+export type TrainingCourse = { curso: string; fabricante: string; data_inicio: string; data_fim: string; hora_inicio?: string; hora_fim?: string; modalidade: string; gratuito: boolean; setor?: string | undefined; link_inscricao: string };
 
 export function makeSeedCourses(now: Date): TrainingCourse[] {
   const d = (offset: number) => new Date(now.getTime() + offset * DAY).toISOString().slice(0, 10);

@@ -7,7 +7,7 @@ export const NEWS_SOURCES = [
   { name: "IP News", url: "https://ipnews.com.br/feed/" },
 ] as const;
 
-export type NewsItem = { title: string; url: string; source: string; date: string; image?: string };
+export type NewsItem = { title: string; url: string; source: string; date: string; image?: string | undefined };
 
 const decode = (s: string) =>
   s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
