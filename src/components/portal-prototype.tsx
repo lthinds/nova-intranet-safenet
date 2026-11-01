@@ -48,7 +48,6 @@ import {
   UserCog,
   X,
   Star,
-  Contact,
   Cake,
   CalendarClock,
 } from "lucide-react";
