@@ -91,12 +91,12 @@ import {
   type Announcement,
 } from "@/components/portal-communications";
 import { RolesView } from "@/components/roles-view";
-import { BirthdaysView, DirectoryView, GlobalSearch, type SearchHit } from "@/components/directory-views";
+import { BirthdaysView, GlobalSearch, type SearchHit } from "@/components/directory-views";
 import { canSeeHrData, identityFromLogin, readStats, toggleFavorite, type DirectoryEntry } from "@/lib/directory";
 import { deleteRole, hasPermission, seedRoles, supervisedAreas, type Role } from "@/lib/roles";
 import { JobsBox, ManualsView, NewsBox, ScheduleView, seedJobs, seedManuals, seedSchedule, type Job, type Manual, type Shift } from "@/components/ops-views";
 
-type View = "inicio" | "avisos" | "treinamentos" | "aplicacoes" | "colaboradores" | "acessos" | "gestao" | "cargos" | "diretorio" | "aniversarios" | "manuais" | "escala";
+type View = "inicio" | "avisos" | "treinamentos" | "aplicacoes" | "colaboradores" | "acessos" | "gestao" | "cargos" | "aniversarios" | "manuais" | "escala";
 type Integration = "SSO integrado" | "Link externo";
 
 type AppItem = {
@@ -150,9 +150,8 @@ const navItems: Array<{ id: View; label: string; icon: ComponentType<{ className
   { id: "treinamentos", label: "Treinamentos", icon: GraduationCap },
   { id: "manuais", label: "Manuais e guias", icon: BookOpen },
   { id: "escala", label: "Escala do monitoramento", icon: CalendarClock },
-  { id: "diretorio", label: "Diretório", icon: Contact },
   { id: "aniversarios", label: "Aniversários e tempo de casa", icon: Cake },
-  { id: "colaboradores", label: "Colaboradores", icon: Users },
+  { id: "colaboradores", label: "Gestão de colaboradores", icon: Users },
   { id: "acessos", label: "Acessos", icon: ShieldEllipsis },
   { id: "gestao", label: "Gestão de aplicações", icon: Settings },
   { id: "cargos", label: "Cargos e permissões", icon: UserCog },
@@ -162,7 +161,7 @@ type ModalState = null | { kind: "add" } | { kind: "approve" | "block" | "unbloc
 
 /** Abas visíveis conforme as permissões do portal somadas de todos os cargos do usuário. */
 export function viewsAllowed(p: { canManageRoles: boolean; canManagePeople: boolean; canManageApps: boolean; canSeeHr?: boolean; canSeeSchedule?: boolean }): View[] {
-  const v: View[] = ["inicio", "avisos", "aplicacoes", "treinamentos", "manuais", "diretorio"];
+  const v: View[] = ["inicio", "avisos", "aplicacoes", "treinamentos", "manuais"];
   if (p.canSeeSchedule) v.push("escala");
   if (p.canSeeHr) v.push("aniversarios");
   // RH/DP manage collaborator data (not permissions), so they also see the people list.
@@ -185,7 +184,7 @@ export function PortalPrototype() {
   const [notice, setNotice] = useState<string | null>(null);
   const [now] = useState(() => new Date());
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => makeSeedAnnouncements(new Date()));
-  const [courses] = useState(() => trainingsData);
+  const [courses, setCourses] = useState(() => trainingsData);
   const [profileIndex, setProfileIndex] = useState(0);
   const [liveUser, setLiveUser] = useState<{ name: string; email: string; groups: string[] } | null>(null);
   useEffect(() => { fetchUserInfo(demoProfiles[0]!).then(({ user, demo }) => { if (!demo) setLiveUser(user); }); }, []);
@@ -231,6 +230,14 @@ export function PortalPrototype() {
   const [favorites, setFavorites] = useState<string[]>([]);
   useEffect(() => { try { setFavorites(JSON.parse(window.localStorage.getItem(favKey) ?? "[]")); } catch { setFavorites([]); } }, [favKey]);
   const toggleFav = (id: string) => setFavorites((list) => { const next = toggleFavorite(list, id); window.localStorage.setItem(favKey, JSON.stringify(next)); return next; });
+  const useKey = `safenet-use:${currentUser.email}`;
+  const [usage, setUsage] = useState<Record<string, number>>({});
+  useEffect(() => { try { setUsage(JSON.parse(window.localStorage.getItem(useKey) ?? "{}")); } catch { setUsage({}); } }, [useKey]);
+  const selectApp = (app: AppItem) => { setSelectedApp(app); setUsage((u) => { const next = recordUse(u, app.id); window.localStorage.setItem(useKey, JSON.stringify(next)); return next; }); };
+  const doneKey = `safenet-done:${currentUser.email}`;
+  const [doneCourses, setDoneCourses] = useState<string[]>([]);
+  useEffect(() => { try { setDoneCourses(JSON.parse(window.localStorage.getItem(doneKey) ?? "[]")); } catch { setDoneCourses([]); } }, [doneKey]);
+  const toggleDone = (curso: string) => setDoneCourses((l) => { const next = toggleFavorite(l, curso); window.localStorage.setItem(doneKey, JSON.stringify(next)); return next; });
   const [focusPerson, setFocusPerson] = useState<string | null>(null);
   useEffect(() => { if (!allowedViews.includes(view)) setView("inicio"); }, [view, allowedViews]);
   const pendingCount = people.filter((p) => p.status === "Pendente").length;
@@ -267,7 +274,7 @@ export function PortalPrototype() {
     if (h.kind === "app") { const a = visibleApps.find((x) => x.id === h.id); if (a) setSelectedApp(a); }
     if (h.kind === "aviso") { const n = announcements.find((x) => x.id === h.id); if (n) setOpenNotice(n); }
     if (h.kind === "treinamento") navigate("treinamentos");
-    if (h.kind === "pessoa") { setFocusPerson(h.id); navigate("diretorio"); }
+    if (h.kind === "pessoa") { setFocusPerson(h.id); if (allowedViews.includes("colaboradores")) navigate("colaboradores"); }
   }
   const [access, setAccess] = useState<Record<string, boolean>>({
     "Ponto — Pontotel": true,
@@ -308,7 +315,6 @@ export function PortalPrototype() {
     colaboradores: { title: "Colaboradores", description: "Aprove cadastros e acompanhe a situação das contas." },
     acessos: { title: "Gestão de acessos", description: "Defina quais ferramentas cada colaborador visualiza no portal." },
     cargos: { title: "Cargos e permissões", description: "Crie cargos e defina o que cada um vê e administra no portal." },
-    diretorio: { title: "Diretório de colaboradores", description: "Encontre colegas por nome, setor, cargo ou telefone." },
     aniversarios: { title: "Aniversários e tempo de casa", description: "Datas comemorativas da equipe (exclusivo RH e DP)." },
     gestao: { title: "Gestão de aplicações", description: "Cadastre ferramentas e escolha como cada acesso será realizado." },
   };
@@ -363,13 +369,12 @@ export function PortalPrototype() {
             {view === "gestao" && canManageApps && <Button onClick={() => setModal({ kind: "add" })}><Plus /> Nova aplicação</Button>}
           </div>
 
-          {view === "inicio" && <HomeView favorites={favorites} onToggleFav={toggleFav} apps={visibleApps} navigate={navigate} onSelect={setSelectedApp} side={<><JobsBox jobs={jobs} setJobs={setJobs} canEdit={canSeeHr || currentUser.roles.includes("Coordenação")} /><NewsBox /></>} />}
+          {view === "inicio" && <HomeView usage={usage} favorites={favorites} onToggleFav={toggleFav} apps={visibleApps} navigate={navigate} onSelect={selectApp} side={<><JobsBox jobs={jobs} setJobs={setJobs} user={currentUser} showNotice={showNotice} canEdit={canSeeHr || currentUser.roles.includes("Coordenação")} /><NewsBox /></>} />}
           {view === "manuais" && <ManualsView manuals={manuals} setManuals={setManuals} userRoles={currentUser.roles} managedAreas={managedAreas} roleNames={roles.map((r) => r.name)} showNotice={showNotice} />}
           {view === "escala" && canSeeSchedule && <ScheduleView schedule={schedule} setSchedule={setSchedule} canEdit={canEditSchedule} showNotice={showNotice} />}
           {view === "avisos" && <NoticesView items={announcements} now={now} acknowledged={acknowledged} onCreate={canPublish ? () => setCreateNotice(true) : undefined} onOpen={(item) => { setOpenNotice(item); if (!item.mandatory && !acknowledged.includes(item.id)) setAcknowledged((l) => [...l, item.id]); }} extra={canPublish ? (item) => { const recips = people.filter((p) => p.status === "Ativo" && isRecipient(item, p)); const st = readStats(recips, acksByEmail, item.id); return <Badge variant="outline" className="border-info/20 bg-info-soft text-info" title={`${st.pending} pendentes`}><Eye className="mr-1 size-3" />{st.read}/{st.total} leram</Badge>; } : undefined} />}
-          {view === "treinamentos" && <TrainingsView courses={courses} now={now} />}
-          {view === "aplicacoes" && <ApplicationsView favorites={favorites} onToggleFav={toggleFav} apps={filteredApps} query={query} setQuery={setQuery} category={category} setCategory={setCategory} onSelect={setSelectedApp} />}
-          {view === "diretorio" && <DirectoryView people={people} focus={focusPerson} />}
+          {view === "treinamentos" && <TrainingsView courses={courses} now={now} completed={doneCourses} onToggleDone={toggleDone} canCreate={currentUser.roles.includes("Supervisor") || currentUser.roles.includes("Coordenação")} onCreate={(c) => { setCourses((l) => [c, ...l]); showNotice("Treinamento publicado."); }} />}
+          {view === "aplicacoes" && <ApplicationsView favorites={favorites} onToggleFav={toggleFav} apps={filteredApps} query={query} setQuery={setQuery} category={category} setCategory={setCategory} onSelect={selectApp} />}
           {view === "aniversarios" && canSeeHr && <BirthdaysView people={people} now={now} />}
           {view === "colaboradores" && (canManagePeople || canSeeHr) && <PeopleView people={people} setPeople={setPeople} roleNames={roles.map((r) => r.name)} setModal={setModal} showNotice={showNotice} canManageAccess={canManagePeople} canEditData={canSeeHr || canManagePeople} />}
           {view === "cargos" && canManageRoles && <RolesView roles={roles} people={people} apps={apps.map((a) => ({ id: a.id, name: a.name }))} onSave={(role, prev) => { setRoles((list) => list.some((r) => r.id === role.id) ? list.map((r) => (r.id === role.id ? role : r)) : [...list, role]); if (prev && prev !== role.name) setPeople((list) => list.map((p) => ({ ...p, roles: p.roles.map((n) => (n === prev ? role.name : n)) }))); showNotice(prev ? `Cargo ${role.name} atualizado.` : `Cargo ${role.name} criado.`); }} onDelete={(id) => { const name = roles.find((r) => r.id === id)?.name; const res = deleteRole(id, roles, people); setRoles(res.roles); setPeople(res.people); showNotice(`Cargo ${name} excluído.`); }} />}
@@ -402,15 +407,22 @@ export function PortalPrototype() {
   );
 }
 
-function HomeView({ apps, navigate, onSelect, favorites, onToggleFav, side }: { favorites: string[]; onToggleFav: (id: string) => void; apps: AppItem[]; navigate: (view: View) => void; onSelect: (app: AppItem) => void; side: ReactNode }) {
+function HomeView({ apps, navigate, onSelect, favorites, onToggleFav, side, usage }: { usage: Record<string, number>; favorites: string[]; onToggleFav: (id: string) => void; apps: AppItem[]; navigate: (view: View) => void; onSelect: (app: AppItem) => void; side: ReactNode }) {
   const sorted = [...apps].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const frequent = topUsed(apps, usage, 6);
   return <div className="space-y-7">
     <HeroCarousel onOpenNotices={() => navigate("avisos")} />
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="space-y-7">
+      {frequent.length > 0 && <section>
+        <SectionHeading title="Usadas frequentemente" action={<span className="text-xs text-muted-foreground">Suas {frequent.length} mais abertas</span>} />
+        <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">{frequent.map((app) => <AppCard key={app.id} app={app} onClick={() => onSelect(app)} compact favorite={favorites.includes(app.id)} onToggleFav={() => onToggleFav(app.id)} />)}</div>
+      </section>}
       <section>
-        <SectionHeading title="Suas aplicações" action={<span className="text-xs text-muted-foreground">{sorted.length} liberadas para você</span>} />
+        <SectionHeading title="Todas as aplicações" action={<span className="text-xs text-muted-foreground">{sorted.length} liberadas para você</span>} />
         <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">{sorted.map((app) => <AppCard key={app.id} app={app} onClick={() => onSelect(app)} compact favorite={favorites.includes(app.id)} onToggleFav={() => onToggleFav(app.id)} />)}</div>
       </section>
+      </div>
       <aside className="space-y-5">{side}</aside>
     </div>
   </div>;
