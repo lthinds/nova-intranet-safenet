@@ -7,7 +7,7 @@ export const getNews = createServerFn({ method: "GET" }).handler(async () => {
     try {
       const res = await fetch(s.url, { headers: { "User-Agent": "Mozilla/5.0 (Safenet Intranet)" }, signal: AbortSignal.timeout(8000) });
       if (!res.ok) return [];
-      return parseRss(await res.text(), s.name);
+      return parseRss(await res.text(), s.name, 2);
     } catch { return []; }
   }));
   return mergeNews(lists, 10);

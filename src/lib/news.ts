@@ -2,7 +2,7 @@
 export const NEWS_SOURCES = [
   { name: "Canaltech", url: "https://canaltech.com.br/rss/seguranca/" },
   { name: "G1 Tecnologia", url: "https://g1.globo.com/rss/g1/tecnologia/" },
-  { name: "Olhar Digital", url: "https://olhardigital.com.br/feed/" },
+  { name: "Olhar Digital", url: "https://olhardigital.com.br/editorias/seguranca/feed/" },
   { name: "TecMundo", url: "https://rss.tecmundo.com.br/feed" },
   { name: "IP News", url: "https://ipnews.com.br/feed/" },
 ] as const;

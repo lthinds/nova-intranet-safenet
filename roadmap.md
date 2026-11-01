@@ -14,4 +14,9 @@
 - [x] Escala do monitoramento editável por Supervisor + Monitoramento
 - [x] Visão geral: apps em ordem alfabética, vagas abertas e notícias à direita
 - [x] Tema escuro menos saturado; corrigida tradução automática ("casos")
-- [ ] Fonte real do feed de notícias — aguardando definição
+- [x] Feed de notícias real com miniaturas (Canaltech, G1, Olhar Digital, TecMundo, IP News)
+- [x] Visão geral: "Usadas frequentemente" (6 mais abertas)
+- [x] Vagas: interesse ou indicação com currículo (PDF/Word/imagem, até 10 MB)
+- [x] Escala do monitoramento mensal 12x36
+- [x] Treinamentos: criação por Supervisor/Coordenação, sugeridos e concluídos
+- [x] Diretório removido; aba renomeada para Gestão de colaboradores
