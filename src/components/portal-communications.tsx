@@ -438,19 +438,21 @@ export function TrainingsView({ courses, now, canCreate, onCreate, completed, on
 }
 
 function CourseDialog({ onClose, onSave }: { onClose: () => void; onSave: (c: TrainingCourse) => void }) {
+  const [hasDates, setHasDates] = useState(false);
   const [f, setF] = useState({ curso: "", fabricante: "", data_inicio: "", data_fim: "", modalidade: "Online", setor: "", link_inscricao: "", gratuito: true });
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((x) => ({ ...x, [k]: e.target.value }));
-  const ok = f.curso.trim() && f.data_inicio;
+  const ok = f.curso.trim() && (!hasDates || f.data_inicio);
   return <Dialog open onOpenChange={(o) => !o && onClose()}><DialogContent className="max-w-lg">
     <DialogHeader><DialogTitle>Novo treinamento ou curso</DialogTitle><DialogDescription>O card aparece em "Cursos sugeridos" para todos.</DialogDescription></DialogHeader>
     <div className="space-y-3">
       <Input placeholder="Nome do curso" value={f.curso} onChange={set("curso")} />
       <Input placeholder="Instituição / fabricante" value={f.fabricante} onChange={set("fabricante")} />
-      <div className="grid grid-cols-2 gap-2"><label className="text-xs font-semibold">Início<Input type="date" value={f.data_inicio} onChange={set("data_inicio")} /></label><label className="text-xs font-semibold">Fim<Input type="date" value={f.data_fim} onChange={set("data_fim")} /></label></div>
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-primary" checked={hasDates} onChange={(e) => setHasDates(e.target.checked)} /> Este curso tem data limite</label>
+      {hasDates && <div className="grid grid-cols-2 gap-2"><label className="text-xs font-semibold">Início<Input type="date" value={f.data_inicio} onChange={set("data_inicio")} /></label><label className="text-xs font-semibold">Fim<Input type="date" value={f.data_fim} onChange={set("data_fim")} /></label></div>}
       <div className="grid grid-cols-2 gap-2"><Input placeholder="Modalidade" value={f.modalidade} onChange={set("modalidade")} /><Input placeholder="Setor (opcional)" value={f.setor} onChange={set("setor")} /></div>
       <Input placeholder="Link de inscrição" value={f.link_inscricao} onChange={set("link_inscricao")} />
       <label className="flex items-center gap-2 text-sm"><Switch checked={f.gratuito} onCheckedChange={(v) => setF((x) => ({ ...x, gratuito: v }))} /> Gratuito</label>
     </div>
-    <DialogFooter><Button variant="outline" onClick={onClose}>Cancelar</Button><Button disabled={!ok} onClick={() => onSave({ ...f, curso: f.curso.trim(), data_fim: f.data_fim || f.data_inicio, setor: f.setor || undefined, link_inscricao: f.link_inscricao || "#" })}>Publicar</Button></DialogFooter>
+    <DialogFooter><Button variant="outline" onClick={onClose}>Cancelar</Button><Button disabled={!ok} onClick={() => onSave({ ...f, curso: f.curso.trim(), data_inicio: hasDates ? f.data_inicio : "", data_fim: hasDates ? f.data_fim || f.data_inicio : "", setor: f.setor || undefined, link_inscricao: f.link_inscricao || "#" })}>Publicar</Button></DialogFooter>
   </DialogContent></Dialog>;
 }
