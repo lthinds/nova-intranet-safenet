@@ -92,7 +92,7 @@ import {
 } from "@/components/portal-communications";
 import { RolesView } from "@/components/roles-view";
 import { BirthdaysView, GlobalSearch, type SearchHit } from "@/components/directory-views";
-import { canSeeHrData, identityFromLogin, readStats, toggleFavorite, type DirectoryEntry } from "@/lib/directory";
+import { canSeeHrData, identityFromLogin, readStats, recordUse, toggleFavorite, topUsed, type DirectoryEntry } from "@/lib/directory";
 import { deleteRole, hasPermission, seedRoles, supervisedAreas, type Role } from "@/lib/roles";
 import { JobsBox, ManualsView, NewsBox, ScheduleView, seedJobs, seedManuals, seedSchedule, type Job, type Manual, type Shift } from "@/components/ops-views";
 

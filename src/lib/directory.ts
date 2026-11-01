@@ -57,3 +57,13 @@ export function identityFromLogin(login: string) {
   const name = user.split(".").filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
   return { name, email: `${user}@${EMAIL_DOMAIN}` };
 }
+
+/** Soma um clique na contagem de uso de uma aplicação. */
+export function recordUse(usage: Record<string, number>, id: string) {
+  return { ...usage, [id]: (usage[id] ?? 0) + 1 };
+}
+
+/** As N aplicações mais abertas (só as já usadas), em ordem decrescente de uso. */
+export function topUsed<T extends { id: string; name: string }>(apps: T[], usage: Record<string, number>, n = 6) {
+  return apps.filter((a) => (usage[a.id] ?? 0) > 0).sort((a, b) => (usage[b.id] ?? 0) - (usage[a.id] ?? 0) || a.name.localeCompare(b.name, "pt-BR")).slice(0, n);
+}
