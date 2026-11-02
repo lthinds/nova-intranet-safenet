@@ -400,20 +400,20 @@ export function daysUntil(iso: string, now: Date) {
 export function TrainingsView({ courses, now, canCreate, onCreate, completed, onToggleDone }: { courses: TrainingCourse[]; now: Date; canCreate?: boolean; onCreate?: (c: TrainingCourse) => void; completed: string[]; onToggleDone: (curso: string) => void }) {
   const [creating, setCreating] = useState(false);
   const all = [...courses].sort((a, b) => a.data_inicio.localeCompare(b.data_inicio));
-  const suggested = all.filter((c) => !completed.includes(c.curso) && daysUntil(c.data_fim, now) >= 0);
+  const suggested = all.filter((c) => !completed.includes(c.curso) && (!c.data_fim || daysUntil(c.data_fim, now) >= 0));
   const done = all.filter((c) => completed.includes(c.curso));
   const card = (c: TrainingCourse, isDone: boolean) => {
     const start = daysUntil(c.data_inicio, now);
-    const live = start <= 0;
+    const live = !!c.data_inicio && start <= 0;
     return (
       <article key={c.curso} className={cn("flex flex-col rounded-lg border bg-card p-5 shadow-sm", isDone && "opacity-80")}>
         <div className="flex items-start justify-between gap-3">
           <span className="grid size-10 place-items-center rounded-md bg-accent text-primary"><GraduationCap className="size-5" /></span>
-          {isDone ? <Badge variant="outline" className="border-success/20 bg-success-soft text-success">Concluído</Badge> : <div className={cn("rounded-md px-3 py-1.5 text-center", live ? "bg-brand-orange text-hero-foreground" : "bg-muted")}>{live ? <strong className="text-[10px] uppercase leading-tight">Acontecendo<br />agora</strong> : <><strong className="block text-lg leading-none">{start}</strong><span className="text-[10px] text-muted-foreground">{start === 1 ? "dia" : "dias"}</span></>}</div>}
+          {isDone ? <Badge variant="outline" className="border-success/20 bg-success-soft text-success">Concluído</Badge> : !c.data_inicio ? <Badge variant="outline">Sem data limite</Badge> : <div className={cn("rounded-md px-3 py-1.5 text-center", live ? "bg-brand-orange text-hero-foreground" : "bg-muted")}>{live ? <strong className="text-[10px] uppercase leading-tight">Acontecendo<br />agora</strong> : <><strong className="block text-lg leading-none">{start}</strong><span className="text-[10px] text-muted-foreground">{start === 1 ? "dia" : "dias"}</span></>}</div>}
         </div>
         <p className="mt-4 text-[10px] font-bold uppercase text-primary">{c.fabricante}</p>
         <h3 className="font-display mt-1 text-sm font-bold">{c.curso}</h3>
-        <p className="mt-2 text-xs text-muted-foreground">{new Date(`${c.data_inicio}T12:00`).toLocaleDateString("pt-BR")}{c.data_fim !== c.data_inicio && ` a ${new Date(`${c.data_fim}T12:00`).toLocaleDateString("pt-BR")}`}{c.hora_inicio && ` · ${c.hora_inicio}–${c.hora_fim ?? ""}`}</p>
+        {c.data_inicio && <p className="mt-2 text-xs text-muted-foreground">{new Date(`${c.data_inicio}T12:00`).toLocaleDateString("pt-BR")}{c.data_fim !== c.data_inicio && ` a ${new Date(`${c.data_fim}T12:00`).toLocaleDateString("pt-BR")}`}{c.hora_inicio && ` · ${c.hora_inicio}–${c.hora_fim ?? ""}`}</p>}
         <div className="mt-3 flex flex-wrap gap-1.5"><Badge variant="outline">{c.modalidade}</Badge>{c.gratuito && <Badge variant="outline" className="border-success/20 bg-success-soft text-success">Gratuito</Badge>}{c.setor && <Badge variant="outline">{c.setor}</Badge>}</div>
         <div className="mt-auto flex gap-2 pt-4">
           {!isDone && <Button variant="outline" size="sm" className="flex-1" asChild><a href={c.link_inscricao} target="_blank" rel="noreferrer" onClick={(e) => c.link_inscricao === "#" && e.preventDefault()}>Inscrever-se <ExternalLink /></a></Button>}

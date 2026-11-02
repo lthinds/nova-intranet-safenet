@@ -86,9 +86,9 @@ export type Shift = { date: string; turno: Turno; operators: string[]; superviso
 export const seedSchedule: Shift[] = [];
 
 /** Paleta de cores para identificar operadores na escala (tokens do tema). */
-export const OPERATOR_COLORS = ["chart-1", "chart-2", "chart-3", "chart-4", "chart-5", "op-6", "op-7", "op-8"] as const;
+export const OPERATOR_COLORS = ["op-1", "op-2", "op-3", "op-4", "op-5", "op-6", "op-7", "op-8"] as const;
 export type OperatorColors = Record<string, string>;
-export const seedOperatorColors: OperatorColors = { "Bruno Teles": "chart-1", "Camila Reis": "chart-2", "Rafael Costa": "chart-3", "Lívia Prado": "chart-4", "Diego Santos": "chart-5", "Fernanda Luz": "op-6", "Gustavo Melo": "op-7", "Helena Dias": "op-8" };
+export const seedOperatorColors: OperatorColors = { "Bruno Teles": "op-1", "Camila Reis": "op-2", "Rafael Costa": "op-3", "Lívia Prado": "op-4", "Diego Santos": "op-5", "Fernanda Luz": "op-6", "Gustavo Melo": "op-7", "Helena Dias": "op-8" };
 const colorVar = (c?: string) => (c ? `var(--${c})` : "var(--muted-foreground)");
 function OpChip({ name, color }: { name: string; color?: string }) {
   return <span className="flex items-center gap-1 truncate rounded-sm px-1 font-semibold" style={{ backgroundColor: `color-mix(in oklch, ${colorVar(color)} 22%, transparent)`, borderLeft: `3px solid ${colorVar(color)}` }}>{name}</span>;
