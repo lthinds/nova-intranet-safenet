@@ -94,7 +94,7 @@ export const SCHEDULE_OPERATORS = ["Bruno Teles", "Camila Reis", "Rafael Costa",
 export const SCHEDULE_SUPERVISOR = "Paulo Mendes";
 const COLOR_NAMES: Record<string, string> = { "op-1": "Azul", "op-2": "Laranja", "op-3": "Verde", "op-4": "Roxo", "op-5": "Vermelho", "op-6": "Ciano", "op-7": "Amarelo", "op-8": "Rosa" };
 const colorVar = (c?: string) => (c ? `var(--${c})` : "var(--muted-foreground)");
-function OpChip({ name, color }: { name: string; color?: string }) {
+function OpChip({ name, color }: { name: string; color?: string | undefined }) {
   return <span className="flex items-center gap-1 truncate rounded-sm px-1 font-semibold" style={{ backgroundColor: `color-mix(in oklch, ${colorVar(color)} 22%, transparent)`, borderLeft: `3px solid ${colorVar(color)}` }}>{name}</span>;
 }
 
