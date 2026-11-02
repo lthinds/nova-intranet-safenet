@@ -133,10 +133,11 @@ export function ScheduleView({ schedule, setSchedule, canEdit, showNotice }: { s
   const days = new Date(ym.y, ym.m + 1, 0).getDate();
   const todayIso = iso(today.getFullYear(), today.getMonth(), today.getDate());
   const move = (delta: number) => setYm(({ y, m }) => { const d = new Date(y, m + delta, 1); return { y: d.getFullYear(), m: d.getMonth() }; });
+  const [building, setBuilding] = useState(false);
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2"><Button size="icon" variant="outline" onClick={() => move(-1)} aria-label="Mês anterior"><ChevronLeft /></Button><h2 className="min-w-40 text-center font-display text-base font-bold">{MONTHS[ym.m]} {ym.y}</h2><Button size="icon" variant="outline" onClick={() => move(1)} aria-label="Próximo mês"><ChevronRight /></Button></div>
-      <p className="text-xs text-muted-foreground">12x36 · Diurno 07h–19h · Noturno 19h–07h. {canEdit ? "Clique em um turno para ajustar." : "Somente Supervisor do Monitoramento e Coordenação editam."}</p>
+      <div className="flex flex-wrap items-center gap-3"><p className="text-xs text-muted-foreground">12x36 · Diurno 07h–19h · Noturno 19h–07h. {canEdit ? "Clique em um turno para ajustes pontuais." : "Somente Supervisor do Monitoramento e Coordenação editam."}</p>{canEdit && <Button onClick={() => setBuilding(true)}><Users /> Montagem de escala</Button>}</div>
     </div>
     <div className="flex flex-wrap gap-2 rounded-lg border bg-card p-3 text-xs" aria-label="Legenda dos operadores">{allOps.map((o) => <span key={o} className="w-40"><OpChip name={o} color={colors[o]} /></span>)}</div>
     <div className="overflow-x-auto rounded-lg border bg-card shadow-sm"><div className="grid min-w-[860px] grid-cols-7">
@@ -149,6 +150,7 @@ export function ScheduleView({ schedule, setSchedule, canEdit, showNotice }: { s
       </div>; })}
     </div></div>
     {edit && <ShiftDialog shift={edit} colors={colors} onColor={(o, c) => setColors((m) => ({ ...m, [o]: c }))} onClose={() => setEdit(null)} onSave={(s) => { setSchedule((l) => [...l.filter((x) => !(x.date === s.date && x.turno === s.turno)), s]); setEdit(null); showNotice(`Escala de ${new Date(s.date + "T12:00").toLocaleDateString("pt-BR")} (${s.turno}) atualizada.`); }} />}
+    {building && <BuildDialog month={`${MONTHS[ym.m]} ${ym.y}`} colors={colors} onClose={() => setBuilding(false)} onApply={(tpl, cols) => { const prefix = iso(ym.y, ym.m, 1).slice(0, 7); setColors((m) => ({ ...m, ...cols })); setSchedule((l) => [...l.filter((x) => !x.date.startsWith(prefix)), ...buildMonth(ym.y, ym.m, tpl)]); setBuilding(false); showNotice(`Escala de ${MONTHS[ym.m]} montada.`); }} />}
   </div>;
 }
 
