@@ -88,25 +88,32 @@ export const seedSchedule: Shift[] = [];
 /** Paleta de cores para identificar operadores na escala (tokens do tema). */
 export const OPERATOR_COLORS = ["op-1", "op-2", "op-3", "op-4", "op-5", "op-6", "op-7", "op-8"] as const;
 export type OperatorColors = Record<string, string>;
-export const seedOperatorColors: OperatorColors = { "Bruno Teles": "op-1", "Camila Reis": "op-2", "Rafael Costa": "op-3", "Lívia Prado": "op-4", "Diego Santos": "op-5", "Fernanda Luz": "op-6", "Gustavo Melo": "op-7", "Helena Dias": "op-8" };
+export const seedOperatorColors: OperatorColors = { "Bruno Teles": "op-1", "Camila Reis": "op-2", "Rafael Costa": "op-3", "Lívia Prado": "op-4", "Paulo Mendes": "op-5" };
+/** Exemplo: 4 operadores e 1 supervisor (que também pode cobrir turnos). */
+export const SCHEDULE_OPERATORS = ["Bruno Teles", "Camila Reis", "Rafael Costa", "Lívia Prado"];
+export const SCHEDULE_SUPERVISOR = "Paulo Mendes";
+const COLOR_NAMES: Record<string, string> = { "op-1": "Azul", "op-2": "Laranja", "op-3": "Verde", "op-4": "Roxo", "op-5": "Vermelho", "op-6": "Ciano", "op-7": "Amarelo", "op-8": "Rosa" };
 const colorVar = (c?: string) => (c ? `var(--${c})` : "var(--muted-foreground)");
 function OpChip({ name, color }: { name: string; color?: string }) {
   return <span className="flex items-center gap-1 truncate rounded-sm px-1 font-semibold" style={{ backgroundColor: `color-mix(in oklch, ${colorVar(color)} 22%, transparent)`, borderLeft: `3px solid ${colorVar(color)}` }}>{name}</span>;
 }
 
-const TEAMS: Record<Turno, [string[], string[]]> = {
-  Diurno: [["Bruno Teles", "Camila Reis"], ["Rafael Costa", "Lívia Prado"]],
-  Noturno: [["Diego Santos", "Fernanda Luz"], ["Gustavo Melo", "Helena Dias"]],
-};
-const SUP: Record<Turno, [string, string]> = { Diurno: ["Paulo Mendes", "Marina Alves"], Noturno: ["Marina Alves", "Paulo Mendes"] };
+export type Paridade = "impar" | "par";
+export type ScheduleTemplate = { count: number; slots: Record<Paridade, Record<Turno, string[]>> };
+export const seedTemplate: ScheduleTemplate = { count: 1, slots: { impar: { Diurno: ["Bruno Teles"], Noturno: ["Camila Reis"] }, par: { Diurno: ["Rafael Costa"], Noturno: ["Lívia Prado"] } } };
 
 const iso = (y: number, m: number, d: number) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
-/** Rodízio 12x36: cada equipe trabalha 12h e folga 36h, ou seja, alterna dia sim, dia não. */
-export function defaultShift(date: string, turno: Turno): Shift {
-  const [y = 0, m = 1, d = 1] = date.split("-").map(Number);
-  const n = Math.round(Date.UTC(y, m - 1, d) / 86400000) % 2;
-  return { date, turno, operators: TEAMS[turno][n]!, supervisor: SUP[turno][n]! };
+/** Rodízio 12x36: uma equipe nos dias ímpares, outra nos dias pares do mês. */
+export function defaultShift(date: string, turno: Turno, tpl: ScheduleTemplate = seedTemplate): Shift {
+  const d = Number(date.split("-")[2] ?? 1);
+  return { date, turno, operators: tpl.slots[d % 2 ? "impar" : "par"][turno].filter(Boolean), supervisor: SCHEDULE_SUPERVISOR };
+}
+
+/** Gera os turnos de todos os dias do mês a partir da montagem (dias ímpares / pares). */
+export function buildMonth(y: number, m: number, tpl: ScheduleTemplate): Shift[] {
+  const days = new Date(y, m + 1, 0).getDate();
+  return Array.from({ length: days }, (_, i) => (["Diurno", "Noturno"] as const).map((t) => defaultShift(iso(y, m, i + 1), t, tpl))).flat();
 }
 
 export function shiftFor(overrides: Shift[], date: string, turno: Turno) {
