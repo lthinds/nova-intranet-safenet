@@ -154,6 +154,31 @@ export function ScheduleView({ schedule, setSchedule, canEdit, showNotice }: { s
   </div>;
 }
 
+const selectCls = "h-9 rounded-md border border-input bg-background px-2 text-sm";
+function BuildDialog({ month, colors, onClose, onApply }: { month: string; colors: OperatorColors; onClose: () => void; onApply: (tpl: ScheduleTemplate, colors: OperatorColors) => void }) {
+  const [tpl, setTpl] = useState<ScheduleTemplate>(seedTemplate);
+  const [cols, setCols] = useState<OperatorColors>({ ...colors });
+  const people = [...SCHEDULE_OPERATORS, SCHEDULE_SUPERVISOR];
+  const setCount = (count: number) => setTpl((t) => ({ count, slots: { impar: { Diurno: resize(t.slots.impar.Diurno, count), Noturno: resize(t.slots.impar.Noturno, count) }, par: { Diurno: resize(t.slots.par.Diurno, count), Noturno: resize(t.slots.par.Noturno, count) } } }));
+  const setSlot = (p: Paridade, t: Turno, i: number, name: string) => setTpl((x) => { const list = [...x.slots[p][t]]; list[i] = name; return { ...x, slots: { ...x.slots, [p]: { ...x.slots[p], [t]: list } } }; });
+  const group = (p: Paridade) => <section className="space-y-3 rounded-lg border p-3">
+    <h3 className="font-display text-sm font-bold">Dias {p === "impar" ? "ímpares" : "pares"}</h3>
+    {(["Diurno", "Noturno"] as const).map((t) => <div key={t} className="space-y-2"><p className="text-xs font-semibold text-muted-foreground">{t === "Diurno" ? "☀ Diurno" : "☾ Noturno"}</p>
+      {Array.from({ length: tpl.count }, (_, i) => { const name = tpl.slots[p][t][i] ?? ""; return <div key={i} className="flex items-center gap-2">
+        <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: colorVar(cols[name]) }} />
+        <select aria-label={`Operador ${i + 1} ${t} dias ${p}`} className={cn(selectCls, "min-w-0 flex-1")} value={name} onChange={(e) => setSlot(p, t, i, e.target.value)}><option value="">Selecione…</option>{people.map((o) => <option key={o} value={o}>{o}{o === SCHEDULE_SUPERVISOR ? " (supervisor)" : ""}</option>)}</select>
+        <select aria-label={`Cor de ${name || "operador"}`} disabled={!name} className={cn(selectCls, "w-28")} value={cols[name] ?? ""} onChange={(e) => setCols((c) => ({ ...c, [name]: e.target.value }))}><option value="">Cor…</option>{OPERATOR_COLORS.map((c) => <option key={c} value={c}>{COLOR_NAMES[c]}</option>)}</select>
+      </div>; })}</div>)}
+  </section>;
+  return <Dialog open onOpenChange={(o) => !o && onClose()}><DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+    <DialogHeader><DialogTitle>Montagem de escala · {month}</DialogTitle><DialogDescription>Defina as equipes dos dias ímpares e pares. Ajustes de um dia específico continuam sendo feitos no calendário.</DialogDescription></DialogHeader>
+    <label className="flex items-center gap-3 text-sm font-semibold">Operadores por turno<select className={selectCls} value={tpl.count} onChange={(e) => setCount(Number(e.target.value))}>{Array.from({ length: 99 }, (_, i) => <option key={i} value={i + 1}>{i + 1}</option>)}</select></label>
+    <div className="grid gap-3 md:grid-cols-2">{group("impar")}{group("par")}</div>
+    <DialogFooter><Button variant="outline" onClick={onClose}>Cancelar</Button><Button onClick={() => onApply(tpl, cols)}>Aplicar ao mês</Button></DialogFooter>
+  </DialogContent></Dialog>;
+}
+const resize = (l: string[], n: number) => Array.from({ length: n }, (_, i) => l[i] ?? "");
+
 function ShiftDialog({ shift, colors, onColor, onClose, onSave }: { shift: Shift; colors: OperatorColors; onColor: (op: string, c: string) => void; onClose: () => void; onSave: (s: Shift) => void }) {
   const [ops, setOps] = useState(shift.operators.join("\n"));
   const names = ops.split("\n").map((s) => s.trim()).filter(Boolean);
