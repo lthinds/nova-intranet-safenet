@@ -238,3 +238,6 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* No escuro, textos em azul usam o tom claro para leitura; botões mantêm o azul profundo com texto branco. */
+.dark .text-primary { color: var(--info); }
