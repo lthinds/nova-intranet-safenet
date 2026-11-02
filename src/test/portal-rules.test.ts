@@ -46,3 +46,14 @@ describe("feed de notícias", () => {
     expect(n).toMatchObject({ title: "Nova câmera", url: "https://x.com/a", image: "https://x.com/i.jpg", source: "Canaltech" });
   });
 });
+
+import { buildMonth } from "@/components/ops-views";
+describe("montagem de escala", () => {
+  it("aplica equipe ímpar nos dias ímpares e par nos pares do mês", () => {
+    const tpl = { count: 1, slots: { impar: { Diurno: ["A"], Noturno: ["B"] }, par: { Diurno: ["C"], Noturno: ["D"] } } };
+    const m = buildMonth(2026, 10, tpl);
+    expect(m).toHaveLength(60);
+    expect(m.find((s) => s.date === "2026-11-03" && s.turno === "Diurno")!.operators).toEqual(["A"]);
+    expect(m.find((s) => s.date === "2026-11-04" && s.turno === "Noturno")!.operators).toEqual(["D"]);
+  });
+});
