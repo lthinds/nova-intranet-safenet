@@ -170,7 +170,8 @@ const toneClass: Record<Post["tone"], string> = {
   orange: "bg-brand-orange text-hero-foreground",
 };
 
-export function HeroCarousel({ onOpenNotices }: { onOpenNotices: () => void }) {
+export function HeroCarousel({ onSearch }: { onSearch: (q: string) => void }) {
+  const [term, setTerm] = useState("");
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 
@@ -193,7 +194,7 @@ export function HeroCarousel({ onOpenNotices }: { onOpenNotices: () => void }) {
           <p className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase text-hero-accent"><span className="h-px w-6 bg-hero-accent" /> Central de aplicações</p>
           <h2 className="font-display max-w-md text-2xl font-bold leading-tight md:text-[34px]">Tudo o que você precisa, em um só lugar.</h2>
           <p className="mt-3 max-w-md text-sm leading-6 text-hero-foreground/70">Acompanhe as novidades do RH e do DP e acesse suas ferramentas com segurança.</p>
-          <Button variant="outline" onClick={onOpenNotices} className="mt-5 border-hero-foreground/20 bg-transparent text-hero-foreground hover:bg-hero-foreground/10 hover:text-hero-foreground">Ver todos os avisos <ArrowRight /></Button>
+          <form role="search" onSubmit={(e) => { e.preventDefault(); onSearch(term.trim()); }} className="mt-5 flex max-w-md gap-2"><input value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Buscar aplicação, ferramenta..." aria-label="Buscar aplicações" className="h-10 min-w-0 flex-1 rounded-md border border-hero-foreground/20 bg-hero-foreground/10 px-3 text-sm text-hero-foreground placeholder:text-hero-foreground/50 outline-none focus:border-hero-accent" /><Button type="submit" variant="outline" className="h-10 border-hero-foreground/20 bg-transparent text-hero-foreground hover:bg-hero-foreground/10 hover:text-hero-foreground">Buscar <ArrowRight /></Button></form>
         </div>
         <article key={index} className="animate-in fade-in slide-in-from-right-4 self-center rounded-lg border border-hero-foreground/10 bg-hero-foreground/5 p-5 backdrop-blur-sm duration-500" aria-live={paused ? "polite" : "off"}>
           <div className="flex items-center gap-2">
