@@ -77,6 +77,7 @@ import { cn } from "@/lib/utils";
 import {
   CreateNoticeDialog,
   HeroCarousel,
+  carouselItems,
   MandatoryNoticeOverlay,
   isRecipient,
   NoticeDetailDialog,
@@ -374,7 +375,7 @@ export function PortalPrototype() {
             {view === "gestao" && canManageApps && <Button onClick={() => setModal({ kind: "add" })}><Plus /> Nova aplicação</Button>}
           </div>
 
-          {view === "inicio" && <HomeView onSearch={(q) => { setQuery(q); setCategory("Todos"); navigate("aplicacoes"); }} usage={usage} favorites={favorites} onToggleFav={toggleFav} apps={visibleApps} navigate={navigate} onSelect={selectApp} side={<><JobsBox jobs={jobs} setJobs={setJobs} user={currentUser} showNotice={showNotice} canEdit={canSeeHr || currentUser.roles.includes("Coordenação")} /><NewsBox /></>} />}
+          {view === "inicio" && <HomeView highlights={carouselItems(announcements, now, (n) => isRecipient(n, currentUser))} onOpenNotice={setOpenNotice} onSearch={(q) => { setQuery(q); setCategory("Todos"); navigate("aplicacoes"); }} usage={usage} favorites={favorites} onToggleFav={toggleFav} apps={visibleApps} navigate={navigate} onSelect={selectApp} side={<><JobsBox jobs={jobs} setJobs={setJobs} user={currentUser} showNotice={showNotice} canEdit={canSeeHr || currentUser.roles.includes("Coordenação")} /><NewsBox /></>} />}
           {view === "manuais" && <ManualsView manuals={manuals} setManuals={setManuals} userRoles={currentUser.roles} managedAreas={managedAreas} roleNames={roles.map((r) => r.name)} showNotice={showNotice} />}
           {view === "escala" && canSeeSchedule && <ScheduleView schedule={schedule} setSchedule={setSchedule} canEdit={canEditSchedule} showNotice={showNotice} />}
           {view === "avisos" && <NoticesView items={announcements} now={now} acknowledged={acknowledged} onCreate={canPublish ? () => setCreateNotice(true) : undefined} onOpen={(item) => { setOpenNotice(item); if (!item.mandatory && !acknowledged.includes(item.id)) setAcknowledged((l) => [...l, item.id]); }} extra={canPublish ? (item) => { const recips = people.filter((p) => p.status === "Ativo" && isRecipient(item, p)); const st = readStats(recips, acksByEmail, item.id); return <Badge variant="outline" className="border-info/20 bg-info-soft text-info" title={`${st.pending} pendentes`}><Eye className="mr-1 size-3" />{st.read}/{st.total} leram</Badge>; } : undefined} />}
@@ -412,11 +413,11 @@ export function PortalPrototype() {
   );
 }
 
-function HomeView({ apps, navigate, onSelect, favorites, onToggleFav, side, usage, onSearch }: { onSearch: (q: string) => void; usage: Record<string, number>; favorites: string[]; onToggleFav: (id: string) => void; apps: AppItem[]; navigate: (view: View) => void; onSelect: (app: AppItem) => void; side: ReactNode }) {
+function HomeView({ apps, navigate, onSelect, favorites, onToggleFav, side, usage, onSearch, highlights, onOpenNotice }: { highlights: Announcement[]; onOpenNotice: (item: Announcement) => void; onSearch: (q: string) => void; usage: Record<string, number>; favorites: string[]; onToggleFav: (id: string) => void; apps: AppItem[]; navigate: (view: View) => void; onSelect: (app: AppItem) => void; side: ReactNode }) {
   const sorted = [...apps].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   const frequent = topUsed(apps, usage, 6);
   return <div className="space-y-7">
-    <HeroCarousel onSearch={onSearch} />
+    <HeroCarousel onSearch={onSearch} items={highlights} onOpen={onOpenNotice} />
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-7">
       {frequent.length > 0 && <section>

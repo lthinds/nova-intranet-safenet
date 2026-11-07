@@ -53,7 +53,20 @@ export type Announcement = {
   imageUrl?: string | undefined;
   videoUrl?: string | undefined;
   audience?: Audience | undefined;
+  /** Shown in the home carousel while active. */
+  featured?: boolean | undefined;
+  /** Short label on the carousel card, e.g. "Novo benefício". */
+  tag?: string | undefined;
 };
+
+export const FEATURE_TAGS = ["Comunicado", "Novo benefício", "Política interna", "Reunião", "Evento", "Campanha"];
+
+/** Carousel content: active featured notices for the viewer; falls back to the 4 most recent active ones. */
+export function carouselItems(items: Announcement[], now: Date, canSee: (a: Announcement) => boolean = () => true) {
+  const active = sortByDateDesc(items).filter((a) => isActive(a, now) && canSee(a));
+  const featured = active.filter((a) => a.featured);
+  return featured.length ? featured : active.slice(0, 4);
+}
 
 /** Who receives a notice: everyone, anyone holding one of the roles, or specific people (by e-mail). */
 export type Audience = { mode: "todos" } | { mode: "funcoes"; roles: string[] } | { mode: "individual"; people: string[] };
@@ -151,38 +164,47 @@ export function makeSeedAnnouncements(now: Date): Announcement[] {
     { id: "a2", title: "Prazo de entrega dos documentos do plano de saúde", summary: "Envie a documentação dos dependentes até sexta-feira para garantir a inclusão.", body: "Colaboradores que desejam incluir dependentes no novo plano de saúde devem entregar a documentação ao DP até sexta-feira. Após o prazo, a inclusão ficará para o próximo ciclo.", sector: "DP", author: "Departamento Pessoal", publishedAt: at(-1), expiresAt: at(4), mandatory: true },
     { id: "a3", title: "Campanha Safenet Mais Segura", summary: "Nova identidade das viaturas e uniformes começa a circular este mês.", body: "O Marketing apresenta a campanha institucional do semestre. Veja as orientações de uso da marca nas viaturas, uniformes e redes sociais.", sector: "Marketing", author: "Marketing", publishedAt: at(-6), expiresAt: at(20), mandatory: false },
     { id: "a4", title: "Atualização do regulamento interno", summary: "Versão revisada com regras de uso de frota e de equipamentos.", body: "O regulamento interno foi revisado. Os principais pontos: uso de veículos fora do expediente, guarda de equipamentos e conduta em atendimento a clientes.", sector: "RH", author: "Recursos Humanos", publishedAt: at(-18), expiresAt: at(-3), mandatory: true },
+    { id: "a5", title: "Telemedicina 24h para você e sua família", summary: "Consultas online sem custo, liberadas para todos os colaboradores e dependentes.", body: "Consultas online sem custo, liberadas para todos os colaboradores e dependentes.", sector: "RH", author: "Recursos Humanos", publishedAt: at(-2), expiresAt: at(30), mandatory: false, featured: true, tag: "Novo benefício" },
+    { id: "a6", title: "Nova política de banco de horas", summary: "Compensação em até 90 dias e consulta do saldo direto no Ponto.", body: "Compensação em até 90 dias e consulta do saldo direto no Ponto.", sector: "DP", author: "Departamento Pessoal", publishedAt: at(-3), expiresAt: at(30), mandatory: false, featured: true, tag: "Política interna" },
+    { id: "a7", title: "Alinhamento geral com as coordenações", summary: "Quinta, 14h, no auditório e com transmissão online para os plantões.", body: "Quinta, 14h, no auditório e com transmissão online para os plantões.", sector: "RH", author: "Recursos Humanos", publishedAt: at(-4), expiresAt: at(7), mandatory: false, featured: true, tag: "Reunião" },
+    { id: "a8", title: "Confraternização de fim de ano", summary: "Inscrições abertas para colaboradores e acompanhantes até 30/11.", body: "Inscrições abertas para colaboradores e acompanhantes até 30/11.", sector: "RH", author: "Recursos Humanos", publishedAt: at(-5), expiresAt: at(40), mandatory: false, featured: true, tag: "Evento" },
   ];
 }
 
-type Post = { tag: string; sector: "RH" | "DP"; title: string; text: string; date: string; icon: ComponentType<{ className?: string }>; tone: "green" | "magenta" | "cyan" | "orange" };
+type Tone = "green" | "magenta" | "cyan" | "orange";
+const tagStyle: Record<string, { icon: ComponentType<{ className?: string }>; tone: Tone }> = {
+  "Novo benefício": { icon: HeartHandshake, tone: "magenta" },
+  "Política interna": { icon: ScrollText, tone: "cyan" },
+  Reunião: { icon: Users, tone: "orange" },
+  Evento: { icon: CalendarDays, tone: "green" },
+  Campanha: { icon: Megaphone, tone: "orange" },
+};
+const sectorName: Record<Sector, string> = { RH: "Recursos Humanos", DP: "Departamento Pessoal", Marketing: "Marketing", Coordenação: "Coordenação" };
 
-const posts: Post[] = [
-  { tag: "Novo benefício", sector: "RH", title: "Telemedicina 24h para você e sua família", text: "Consultas online sem custo, liberadas para todos os colaboradores e dependentes.", date: "Vigente a partir de 01/11", icon: HeartHandshake, tone: "magenta" },
-  { tag: "Política interna", sector: "DP", title: "Nova política de banco de horas", text: "Compensação em até 90 dias e consulta do saldo direto no Ponto.", date: "Publicado em 15/10", icon: ScrollText, tone: "cyan" },
-  { tag: "Reunião", sector: "RH", title: "Alinhamento geral com as coordenações", text: "Quinta, 14h, no auditório e com transmissão online para os plantões.", date: "23/10 · 14h", icon: Users, tone: "orange" },
-  { tag: "Evento", sector: "RH", title: "Confraternização de fim de ano", text: "Inscrições abertas para colaboradores e acompanhantes até 30/11.", date: "13/12 · 19h", icon: CalendarDays, tone: "green" },
-];
-
-const toneClass: Record<Post["tone"], string> = {
+const toneClass: Record<Tone, string> = {
   green: "bg-brand-green text-hero-accent-foreground",
   magenta: "bg-brand-magenta text-hero-foreground",
   cyan: "bg-brand-cyan text-hero-accent-foreground",
   orange: "bg-brand-orange text-hero-foreground",
 };
 
-export function HeroCarousel({ onSearch }: { onSearch: (q: string) => void }) {
+export function HeroCarousel({ onSearch, items, onOpen }: { onSearch: (q: string) => void; items: Announcement[]; onOpen?: (item: Announcement) => void }) {
+  const posts = items;
   const [term, setTerm] = useState("");
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 
   useEffect(() => {
     if (paused) return;
+    if (posts.length < 2) return;
     const timer = window.setInterval(() => setIndex((value) => (value + 1) % posts.length), 6000);
     return () => window.clearInterval(timer);
-  }, [paused]);
+  }, [paused, posts.length]);
 
-  const post = posts[index] ?? posts[0]!;
-  const Icon = post.icon;
+  const post = posts[index % Math.max(posts.length, 1)];
+  const tag = post ? post.tag || "Comunicado" : "";
+  const style = tagStyle[tag] ?? { icon: Megaphone, tone: "cyan" as Tone };
+  const Icon = style.icon;
   const go = (step: number) => setIndex((value) => (value + step + posts.length) % posts.length);
 
   return (
@@ -196,24 +218,24 @@ export function HeroCarousel({ onSearch }: { onSearch: (q: string) => void }) {
           <p className="mt-3 max-w-md text-sm leading-6 text-hero-foreground/70">Acompanhe as novidades do RH e do DP e acesse suas ferramentas com segurança.</p>
           <form role="search" onSubmit={(e) => { e.preventDefault(); onSearch(term.trim()); }} className="mt-5 flex max-w-md gap-2"><input value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Buscar aplicação, ferramenta..." aria-label="Buscar aplicações" className="h-10 min-w-0 flex-1 rounded-md border border-hero-foreground/20 bg-hero-foreground/10 px-3 text-sm text-hero-foreground placeholder:text-hero-foreground/50 outline-none focus:border-hero-accent" /><Button type="submit" variant="outline" className="h-10 border-hero-foreground/20 bg-transparent text-hero-foreground hover:bg-hero-foreground/10 hover:text-hero-foreground">Buscar <ArrowRight /></Button></form>
         </div>
-        <article key={index} className="animate-in fade-in slide-in-from-right-4 self-center rounded-lg border border-hero-foreground/10 bg-hero-foreground/5 p-5 backdrop-blur-sm duration-500" aria-live={paused ? "polite" : "off"}>
+        {post && <article key={post.id} className="animate-in fade-in slide-in-from-right-4 self-center rounded-lg border border-hero-foreground/10 bg-hero-foreground/5 p-5 backdrop-blur-sm duration-500" aria-live={paused ? "polite" : "off"}>
           <div className="flex items-center gap-2">
-            <span className={cn("grid size-9 place-items-center rounded-md", toneClass[post.tone])}><Icon className="size-4" /></span>
-            <Badge className={cn("hover:opacity-100", toneClass[post.tone])}>{post.tag}</Badge>
-            <span className="ml-auto text-[10px] font-bold uppercase text-hero-foreground/60">{post.sector === "RH" ? "Recursos Humanos" : "Departamento Pessoal"}</span>
+            <span className={cn("grid size-9 place-items-center rounded-md", toneClass[style.tone])}><Icon className="size-4" /></span>
+            <Badge className={cn("hover:opacity-100", toneClass[style.tone])}>{tag}</Badge>
+            <span className="ml-auto text-[10px] font-bold uppercase text-hero-foreground/60">{sectorName[post.sector]}</span>
           </div>
-          <h3 className="font-display mt-4 text-lg font-bold leading-snug md:text-xl">{post.title}</h3>
-          <p className="mt-2 text-sm leading-6 text-hero-foreground/75">{post.text}</p>
+          <h3 className="font-display mt-4 text-lg font-bold leading-snug md:text-xl">{onOpen ? <button className="text-left hover:underline" onClick={() => onOpen(post)}>{post.title}</button> : post.title}</h3>
+          <p className="mt-2 text-sm leading-6 text-hero-foreground/75">{post.summary}</p>
           <div className="mt-5 flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-xs text-hero-foreground/60"><CalendarDays className="size-3.5" />{post.date}</span>
+            <span className="flex items-center gap-1.5 text-xs text-hero-foreground/60"><CalendarDays className="size-3.5" />Até {fmt(post.expiresAt)}</span>
             <div className="ml-auto flex items-center gap-1">
               <Button size="icon" variant="ghost" className="size-8 text-hero-foreground hover:bg-hero-foreground/10 hover:text-hero-foreground" onClick={() => go(-1)} aria-label="Post anterior"><ChevronLeft /></Button>
               <Button size="icon" variant="ghost" className="size-8 text-hero-foreground hover:bg-hero-foreground/10 hover:text-hero-foreground" onClick={() => setPaused((v) => !v)} aria-label={paused ? "Retomar carrossel" : "Pausar carrossel"}>{paused ? <Play /> : <Pause />}</Button>
               <Button size="icon" variant="ghost" className="size-8 text-hero-foreground hover:bg-hero-foreground/10 hover:text-hero-foreground" onClick={() => go(1)} aria-label="Próximo post"><ChevronRight /></Button>
             </div>
           </div>
-          <div className="mt-4 flex gap-1.5">{posts.map((item, i) => <button key={item.title} onClick={() => setIndex(i)} aria-label={`Ir para o post ${i + 1}`} className={cn("h-1.5 rounded-full transition-all", i === index ? "w-6 bg-hero-accent" : "w-1.5 bg-hero-foreground/30")} />)}</div>
-        </article>
+          <div className="mt-4 flex gap-1.5">{posts.map((item, i) => <button key={item.id} onClick={() => setIndex(i)} aria-label={`Ir para o post ${i + 1}`} className={cn("h-1.5 rounded-full transition-all", i === index ? "w-6 bg-hero-accent" : "w-1.5 bg-hero-foreground/30")} />)}</div>
+        </article>}
       </div>
     </section>
   );
@@ -319,6 +341,8 @@ export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate,
   const [imageUrl, setImageUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [audience, setAudience] = useState<Audience>({ mode: "todos" });
+  const [featured, setFeatured] = useState(false);
+  const [tag, setTag] = useState("Comunicado");
 
   useEffect(() => {
     if (!open) return;
@@ -326,6 +350,7 @@ export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate,
     setSector(editing?.sector ?? "RH"); setMandatory(editing?.mandatory ?? true);
     setImageUrl(editing?.imageUrl ?? ""); setVideoUrl(editing?.videoUrl ?? "");
     setAudience(editing?.audience ?? { mode: "todos" });
+    setFeatured(editing?.featured ?? false); setTag(editing?.tag ?? "Comunicado");
     setExpiration(editing ? "custom" : "7"); setCustomDate(editing ? editing.expiresAt.slice(0, 10) : "");
   }, [open, editing]);
 
@@ -334,7 +359,7 @@ export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate,
   const videoInvalid = videoUrl.trim() !== "" && !youtubeId(videoUrl);
   const valid = title.trim() && summary.trim() && audienceOk && !videoInvalid && (expiration !== "custom" || customDate);
   const onFile = (file?: File) => { if (!file) return; const r = new FileReader(); r.onload = () => setImageUrl(String(r.result)); r.readAsDataURL(file); };
-  const draft: NoticeDraft = { title, summary, body: body || summary, sector, mandatory, author: sector === "Coordenação" ? "Marina Alves" : sector, imageUrl: imageUrl || undefined, videoUrl: videoUrl.trim() || undefined, audience };
+  const draft: NoticeDraft = { title, summary, body: body || summary, sector, mandatory, author: sector === "Coordenação" ? "Marina Alves" : sector, imageUrl: imageUrl || undefined, videoUrl: videoUrl.trim() || undefined, audience, featured, tag: featured ? tag : undefined };
   const preview = { ...draft, id: "preview", publishedAt: new Date().toISOString(), expiresAt: new Date().toISOString() };
 
   return (
@@ -362,6 +387,10 @@ export function CreateNoticeDialog({ open, editing, onClose, onCreate, onUpdate,
             </div>
             {expiration === "custom" && <label className="block text-xs font-medium">Data de expiração<Input className="mt-1" type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} /></label>}
             <label className="flex items-start gap-3 rounded-md border border-brand-orange/25 bg-brand-orange/5 p-3 text-xs leading-5"><Switch checked={mandatory} onCheckedChange={setMandatory} /><span><strong className="block text-sm">Exibir em tela cheia após o login</strong>O colaborador só entra no portal depois de confirmar a leitura.</span></label>
+            <div className="space-y-3 rounded-md border border-brand-cyan/25 bg-brand-cyan/5 p-3 text-xs leading-5">
+              <label className="flex items-start gap-3"><Switch checked={featured} onCheckedChange={setFeatured} /><span><strong className="block text-sm">Destacar no carrossel da página inicial</strong>Aparece no topo da Visão geral até a data de expiração.</span></label>
+              {featured && <label className="block text-xs font-medium">Etiqueta do destaque<Select value={tag} onValueChange={setTag}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{FEATURE_TAGS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></label>}
+            </div>
           </div>
           <div className="rounded-lg border bg-muted/30 p-4">
             <p className="mb-3 text-[10px] font-bold uppercase text-muted-foreground">Pré-visualização</p>
