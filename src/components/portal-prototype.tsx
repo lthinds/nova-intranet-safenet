@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
-import { appsData, deriveGroups, OTHER_GROUP } from "@/data/apps";
+import { appsData, appTone, deriveGroups, OTHER_GROUP, type AppTone } from "@/data/apps";
 import { trainingsData } from "@/data/trainings";
 import { canSeeApp, demoProfiles, fetchUserInfo, SIGN_OUT_URL } from "@/lib/keycloak";
 import {
@@ -109,6 +109,8 @@ type AppItem = {
   icon: ComponentType<{ className?: string }>;
   recent?: boolean;
   keycloakGroup?: string | undefined;
+  roles: string[];
+  iconKey: string;
 };
 
 const iconMap: Record<string, ComponentType<{ className?: string }>> = {
@@ -127,6 +129,8 @@ const apps: AppItem[] = appsData.map((a) => ({
   icon: iconMap[a.icon] ?? AppWindow,
   recent: Boolean(a.recent),
   keycloakGroup: a.keycloakGroup,
+  roles: a.roles ?? [],
+  iconKey: a.icon,
 }));
 
 
@@ -190,7 +194,8 @@ export function PortalPrototype() {
   const profile = demoProfiles[profileIndex] ?? demoProfiles[0]!;
   const currentUser = liveUser ? { ...liveUser, roles: [] as string[], label: "Colaborador" } : profile;
   const initials = currentUser.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
-  const visibleApps = useMemo(() => apps.filter((app) => canSeeApp(app, currentUser.groups)), [currentUser.groups]);
+  const [appList, setAppList] = useState<AppItem[]>(apps);
+  const visibleApps = useMemo(() => appList.filter((app) => canSeeApp(app, currentUser.groups)), [appList, currentUser.groups]);
   // Read confirmations are kept per collaborator, so a confirmed notice never pops up again on later logins.
   const ackKey = `safenet-ack:${currentUser.email}`;
   const [acknowledged, setAcknowledgedState] = useState<string[]>([]);
@@ -376,9 +381,9 @@ export function PortalPrototype() {
           {view === "aplicacoes" && <ApplicationsView favorites={favorites} onToggleFav={toggleFav} apps={filteredApps} query={query} setQuery={setQuery} category={category} setCategory={setCategory} onSelect={selectApp} />}
           {view === "aniversarios" && canSeeHr && <BirthdaysView people={people} now={now} />}
           {view === "colaboradores" && (canManagePeople || canSeeHr) && <PeopleView people={people} setPeople={setPeople} roleNames={roles.map((r) => r.name)} setModal={setModal} showNotice={showNotice} canManageAccess={canManagePeople} canEditData={canSeeHr || canManagePeople} />}
-          {view === "cargos" && canManageRoles && <RolesView roles={roles} people={people} apps={apps.map((a) => ({ id: a.id, name: a.name }))} onSave={(role, prev) => { setRoles((list) => list.some((r) => r.id === role.id) ? list.map((r) => (r.id === role.id ? role : r)) : [...list, role]); if (prev && prev !== role.name) setPeople((list) => list.map((p) => ({ ...p, roles: p.roles.map((n) => (n === prev ? role.name : n)) }))); showNotice(prev ? `Cargo ${role.name} atualizado.` : `Cargo ${role.name} criado.`); }} onDelete={(id) => { const name = roles.find((r) => r.id === id)?.name; const res = deleteRole(id, roles, people); setRoles(res.roles); setPeople(res.people); showNotice(`Cargo ${name} excluído.`); }} />}
+          {view === "cargos" && canManageRoles && <RolesView roles={roles} people={people} apps={appList.map((a) => ({ id: a.id, name: a.name }))} onSave={(role, prev) => { setRoles((list) => list.some((r) => r.id === role.id) ? list.map((r) => (r.id === role.id ? role : r)) : [...list, role]); if (prev && prev !== role.name) setPeople((list) => list.map((p) => ({ ...p, roles: p.roles.map((n) => (n === prev ? role.name : n)) }))); showNotice(prev ? `Cargo ${role.name} atualizado.` : `Cargo ${role.name} criado.`); }} onDelete={(id) => { const name = roles.find((r) => r.id === id)?.name; const res = deleteRole(id, roles, people); setRoles(res.roles); setPeople(res.people); showNotice(`Cargo ${name} excluído.`); }} />}
           {view === "acessos" && canManagePeople && <AccessView access={access} setAccess={setAccess} showNotice={showNotice} />}
-          {view === "gestao" && canManageApps && <ManagementView onSelect={setSelectedApp} />}
+          {view === "gestao" && canManageApps && <ManagementView apps={appList} roleNames={roles.map((r) => r.name)} onSave={(app) => { setAppList((l) => l.map((a) => (a.id === app.id ? app : a))); showNotice(`Aplicação ${app.name} atualizada.`); }} />}
         </main>
       </div>
 
@@ -507,16 +512,53 @@ function AccessView({ access, setAccess, showNotice }: { access: Record<string, 
   </div>;
 }
 
-function ManagementView({ onSelect }: { onSelect: (app: AppItem) => void }) {
-  return <div className="space-y-5"><div className="grid gap-3 sm:grid-cols-3"><Metric value="9" label="SSO integrado" icon={KeyRound} /><Metric value="7" label="Links externos" icon={ExternalLink} /><Metric value="1" label="Em configuração" icon={Clock3} /></div><section className="overflow-hidden rounded-lg border bg-card shadow-sm"><div className="grid gap-3 border-b p-4 md:grid-cols-[minmax(0,1fr)_220px]"><label className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input placeholder="Buscar aplicação..." className="pl-9" /></label><Select defaultValue="todas"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todas">Todos os tipos</SelectItem><SelectItem value="sso">SSO integrado</SelectItem><SelectItem value="externo">Link externo</SelectItem></SelectContent></Select></div><div className="divide-y">{apps.slice(0, 10).map((app) => { const Icon = app.icon; return <div key={app.name} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-4 md:grid-cols-[auto_minmax(0,1.5fr)_minmax(150px,.7fr)_130px_auto]"><span className="grid size-10 place-items-center rounded-md bg-accent text-primary"><Icon className="size-5" /></span><div className="min-w-0"><strong className="block truncate text-sm">{app.name}</strong><span className="block truncate text-xs text-muted-foreground">{app.category}</span></div><div className="hidden md:block"><IntegrationBadge type={app.integration} /></div><span className="hidden text-xs text-muted-foreground md:block">{app.status}</span><Button variant="ghost" size="icon" onClick={() => onSelect(app)} aria-label={`Configurar ${app.name}`}><Settings /></Button></div>; })}</div></section></div>;
+function ManagementView({ apps, roleNames, onSave }: { apps: AppItem[]; roleNames: string[]; onSave: (app: AppItem) => void }) {
+  const [q, setQ] = useState("");
+  const [type, setType] = useState("todas");
+  const [editing, setEditing] = useState<AppItem | null>(null);
+  const list = apps.filter((a) => (type === "todas" || (type === "sso") === (a.integration === "SSO integrado")) && `${a.name} ${a.description}`.toLowerCase().includes(q.toLowerCase()));
+  const sso = apps.filter((a) => a.integration === "SSO integrado").length;
+  return <div className="space-y-5"><div className="grid gap-3 sm:grid-cols-3"><Metric value={String(sso)} label="SSO integrado" icon={KeyRound} /><Metric value={String(apps.length - sso)} label="Links externos" icon={ExternalLink} /><Metric value={String(apps.filter((a) => a.status === "Em breve" || !a.url || a.url === "#").length)} label="Em configuração" icon={Clock3} /></div><section className="overflow-hidden rounded-lg border bg-card shadow-sm"><div className="grid gap-3 border-b p-4 md:grid-cols-[minmax(0,1fr)_220px]"><label className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar aplicação..." className="pl-9" /></label><Select value={type} onValueChange={setType}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todas">Todos os tipos</SelectItem><SelectItem value="sso">SSO integrado</SelectItem><SelectItem value="externo">Link externo</SelectItem></SelectContent></Select></div><div className="divide-y">{list.map((app) => { const Icon = app.icon; return <div key={app.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-4 md:grid-cols-[auto_minmax(0,1.5fr)_minmax(150px,.7fr)_130px_auto]"><span className={cn("grid size-10 place-items-center rounded-md", iconTone(app))}><Icon className="size-5" /></span><div className="min-w-0"><strong className="block truncate text-sm">{app.name}</strong><span className="block truncate text-xs text-muted-foreground">{app.url}</span></div><div className="hidden md:block"><IntegrationBadge type={app.integration} /></div><span className="hidden text-xs text-muted-foreground md:block">{app.roles.length ? app.roles.join(", ") : "Acesso geral"}</span><Button variant="outline" size="sm" onClick={() => setEditing(app)} aria-label={`Editar ${app.name}`}><Pencil /> Editar</Button></div>; })}</div></section>
+    {editing && <AppEditDialog app={editing} roleNames={roleNames} onClose={() => setEditing(null)} onSave={(a) => { onSave(a); setEditing(null); }} />}
+  </div>;
 }
 
-const ICON_TONES = ["bg-brand-cyan/15 text-brand-cyan", "bg-brand-green/15 text-brand-green", "bg-brand-orange/15 text-brand-orange", "bg-brand-magenta/15 text-brand-magenta", "bg-accent text-primary"];
-function iconTone(id: string) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; return ICON_TONES[h % ICON_TONES.length]; }
+function AppEditDialog({ app, roleNames, onClose, onSave }: { app: AppItem; roleNames: string[]; onClose: () => void; onSave: (app: AppItem) => void }) {
+  const [d, setD] = useState<AppItem>(app);
+  const [err, setErr] = useState("");
+  const toggleRole = (r: string) => setD({ ...d, roles: d.roles.includes(r) ? d.roles.filter((x) => x !== r) : [...d.roles, r] });
+  function save() {
+    if (!d.name.trim()) return setErr("Informe o nome.");
+    const url = d.url.trim();
+    if (url !== "#" && !/^(https?:\/\/|\/)/.test(url)) return setErr("O link deve começar com http://, https:// ou / (ou use # se ainda não houver endereço).");
+    onSave({ ...d, name: d.name.trim(), url, icon: iconMap[d.iconKey] ?? AppWindow });
+  }
+  return <Dialog open onOpenChange={(o) => !o && onClose()}><DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto"><DialogHeader><DialogTitle>Editar aplicação</DialogTitle><DialogDescription>As mudanças valem na hora para todos os colaboradores.</DialogDescription></DialogHeader>
+    <div className="space-y-3 text-sm">
+      <label className="block space-y-1"><span className="text-xs font-semibold">Nome</span><Input value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} /></label>
+      <label className="block space-y-1"><span className="text-xs font-semibold">Link de destino</span><Input value={d.url} onChange={(e) => setD({ ...d, url: e.target.value })} placeholder="https://..." /></label>
+      <label className="block space-y-1"><span className="text-xs font-semibold">Descrição</span><Input value={d.description} onChange={(e) => setD({ ...d, description: e.target.value })} /></label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block space-y-1"><span className="text-xs font-semibold">Categoria</span><Input value={d.category} onChange={(e) => setD({ ...d, category: e.target.value })} /></label>
+        <label className="block space-y-1"><span className="text-xs font-semibold">Ícone</span><Select value={d.iconKey} onValueChange={(v) => setD({ ...d, iconKey: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.keys(iconMap).map((k) => <SelectItem key={k} value={k}>{k}</SelectItem>)}</SelectContent></Select></label>
+        <label className="block space-y-1"><span className="text-xs font-semibold">Forma de acesso</span><Select value={d.integration} onValueChange={(v) => setD({ ...d, integration: v as Integration })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="SSO integrado">SSO integrado</SelectItem><SelectItem value="Link externo">Link externo</SelectItem></SelectContent></Select></label>
+        <label className="block space-y-1"><span className="text-xs font-semibold">Situação</span><Select value={d.status} onValueChange={(v) => setD({ ...d, status: v as AppItem["status"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Disponível">Disponível</SelectItem><SelectItem value="Em breve">Em breve</SelectItem></SelectContent></Select></label>
+      </div>
+      <div className="space-y-1"><span className="text-xs font-semibold">Funções que usam este card</span><p className="text-[11px] text-muted-foreground">Nenhuma marcada = acesso geral. A cor do ícone segue a primeira marcada{d.roles[0] ? ` (${d.roles[0]})` : ""}.</p>
+        <div className="grid gap-2 sm:grid-cols-3">{roleNames.map((r) => { const idx = d.roles.indexOf(r); return <label key={r} className={cn("flex items-center gap-2 rounded-md border p-2 text-xs", idx >= 0 && "border-primary bg-accent")}><Checkbox checked={idx >= 0} onCheckedChange={() => toggleRole(r)} />{r}{idx >= 0 && <span className="ml-auto text-[10px] font-bold text-muted-foreground">{idx + 1}º</span>}</label>; })}</div>
+        <div className="flex items-center gap-2 pt-1 text-xs"><span className={cn("grid size-8 place-items-center rounded-md", iconTone(d))}>{(() => { const I = iconMap[d.iconKey] ?? AppWindow; return <I className="size-4" />; })()}</span>Prévia da cor</div>
+      </div>
+      {err && <p className="text-xs font-semibold text-destructive">{err}</p>}
+    </div>
+    <DialogFooter><Button variant="outline" onClick={onClose}>Cancelar</Button><Button onClick={save}><Check /> Salvar</Button></DialogFooter></DialogContent></Dialog>;
+}
+
+const TONE_CLASS: Record<AppTone, string> = { geral: "bg-accent text-primary", monitoramento: "bg-brand-green/15 text-brand-green", comercial: "bg-brand-orange/15 text-brand-orange", tecnico: "bg-brand-cyan/15 text-brand-cyan", rh: "bg-brand-magenta/15 text-brand-magenta" };
+function iconTone(app: { roles: string[] }) { return TONE_CLASS[appTone(app.roles)]; }
 
 function AppCard({ app, onClick, compact = false, favorite = false, onToggleFav }: { app: AppItem; onClick: () => void; compact?: boolean; favorite?: boolean; onToggleFav?: () => void }) {
   const Icon = app.icon;
-  return <div className="relative">{onToggleFav && <button onClick={onToggleFav} aria-label={favorite ? `Remover ${app.name} dos favoritos` : `Fixar ${app.name} nos favoritos`} aria-pressed={favorite} className="absolute bottom-3 right-3 z-10 grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-brand-orange"><Star className={cn("size-4", favorite && "fill-brand-orange text-brand-orange")} /></button>}<button onClick={onClick} className={cn("group flex h-full w-full min-h-48 flex-col rounded-lg border bg-card p-5 text-left text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md", compact && "min-h-40 p-4")}><div className="flex w-full items-start justify-between gap-3"><span className={cn("grid size-10 place-items-center rounded-md", iconTone(app.name))}><Icon className="size-5" /></span><Badge variant="outline" className={cn("border-success/15 bg-success-soft text-success", app.status === "Em breve" && "border-border bg-muted text-muted-foreground")}>{app.status}</Badge></div><h3 className="mt-4 text-sm font-bold">{app.name}</h3><p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{app.description}</p><span className="mt-auto flex items-center gap-1 pt-4 text-xs font-bold text-primary">{app.status === "Em breve" ? "Ver detalhes" : "Acessar"}<ArrowRight className="size-3 transition-transform group-hover:translate-x-1" /></span></button></div>;
+  return <div className="relative">{onToggleFav && <button onClick={onToggleFav} aria-label={favorite ? `Remover ${app.name} dos favoritos` : `Fixar ${app.name} nos favoritos`} aria-pressed={favorite} className="absolute bottom-3 right-3 z-10 grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-brand-orange"><Star className={cn("size-4", favorite && "fill-brand-orange text-brand-orange")} /></button>}<button onClick={onClick} className={cn("group flex h-full w-full min-h-48 flex-col rounded-lg border bg-card p-5 text-left text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md", compact && "min-h-40 p-4")}><div className="flex w-full items-start justify-between gap-3"><span className={cn("grid size-10 place-items-center rounded-md", iconTone(app))}><Icon className="size-5" /></span><Badge variant="outline" className={cn("border-success/15 bg-success-soft text-success", app.status === "Em breve" && "border-border bg-muted text-muted-foreground")}>{app.status}</Badge></div><h3 className="mt-4 text-sm font-bold">{app.name}</h3><p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{app.description}</p><span className="mt-auto flex items-center gap-1 pt-4 text-xs font-bold text-primary">{app.status === "Em breve" ? "Ver detalhes" : "Acessar"}<ArrowRight className="size-3 transition-transform group-hover:translate-x-1" /></span></button></div>;
 }
 
 function Metric({ value, label, icon: Icon }: { value: string; label: string; icon: ComponentType<{ className?: string }> }) {
@@ -544,7 +586,7 @@ function ApplicationDialog({ app, onClose, onLaunch }: { app: AppItem | null; on
   const Icon = app.icon;
   const pending = !app.url || app.url === "#";
   const unavailable = app.status === "Em breve" || pending;
-  return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent className="max-w-xl"><DialogHeader><div className="mb-3 flex items-center gap-3"><span className={cn("grid size-12 place-items-center rounded-md", iconTone(app.name))}><Icon className="size-6" /></span><div><DialogTitle>{app.name}</DialogTitle><p className="mt-1 text-xs text-muted-foreground">{app.category}</p></div></div><DialogDescription>{app.description}</DialogDescription></DialogHeader><div className="space-y-3 py-2"><div className="grid grid-cols-2 gap-3"><div className="rounded-md border p-3"><span className="text-[10px] uppercase text-muted-foreground">Forma de acesso</span><div className="mt-2"><IntegrationBadge type={app.integration} /></div></div><div className="rounded-md border p-3"><span className="text-[10px] uppercase text-muted-foreground">Disponibilidade</span><div className="mt-2"><StatusBadge status={pending ? "Endereço pendente" : app.status} /></div></div></div><div className="rounded-md bg-muted/60 p-3 text-xs leading-5 text-muted-foreground">{app.integration === "SSO integrado" ? "Abre em nova aba com o login único da empresa. As permissões internas continuam definidas neste sistema." : "Ferramenta de terceiros: abre em nova aba e pode pedir login próprio."}</div></div><DialogFooter><Button variant="outline" onClick={onClose}>Fechar</Button><Button disabled={unavailable} onClick={() => { window.open(app.url, "_blank", "noopener,noreferrer"); onClose(); onLaunch(app); }}>{app.integration === "SSO integrado" ? <KeyRound /> : <ExternalLink />}{unavailable ? "Indisponível" : "Abrir aplicação"}</Button></DialogFooter></DialogContent></Dialog>;
+  return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent className="max-w-xl"><DialogHeader><div className="mb-3 flex items-center gap-3"><span className={cn("grid size-12 place-items-center rounded-md", iconTone(app))}><Icon className="size-6" /></span><div><DialogTitle>{app.name}</DialogTitle><p className="mt-1 text-xs text-muted-foreground">{app.category}</p></div></div><DialogDescription>{app.description}</DialogDescription></DialogHeader><div className="space-y-3 py-2"><div className="grid grid-cols-2 gap-3"><div className="rounded-md border p-3"><span className="text-[10px] uppercase text-muted-foreground">Forma de acesso</span><div className="mt-2"><IntegrationBadge type={app.integration} /></div></div><div className="rounded-md border p-3"><span className="text-[10px] uppercase text-muted-foreground">Disponibilidade</span><div className="mt-2"><StatusBadge status={pending ? "Endereço pendente" : app.status} /></div></div></div><div className="rounded-md bg-muted/60 p-3 text-xs leading-5 text-muted-foreground">{app.integration === "SSO integrado" ? "Abre em nova aba com o login único da empresa. As permissões internas continuam definidas neste sistema." : "Ferramenta de terceiros: abre em nova aba e pode pedir login próprio."}</div></div><DialogFooter><Button variant="outline" onClick={onClose}>Fechar</Button><Button disabled={unavailable} onClick={() => { window.open(app.url, "_blank", "noopener,noreferrer"); onClose(); onLaunch(app); }}>{app.integration === "SSO integrado" ? <KeyRound /> : <ExternalLink />}{unavailable ? "Indisponível" : "Abrir aplicação"}</Button></DialogFooter></DialogContent></Dialog>;
 }
 
 function LaunchOverlay({ app, onDone }: { app: AppItem | null; onDone: () => void }) {
