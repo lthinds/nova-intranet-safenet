@@ -88,10 +88,10 @@ export const seedSchedule: Shift[] = [];
 /** Paleta de cores para identificar operadores na escala (tokens do tema). */
 export const OPERATOR_COLORS = ["op-1", "op-2", "op-3", "op-4", "op-5", "op-6", "op-7", "op-8"] as const;
 export type OperatorColors = Record<string, string>;
-export const seedOperatorColors: OperatorColors = { "Bruno Teles": "op-1", "Camila Reis": "op-2", "Rafael Costa": "op-3", "Lívia Prado": "op-4", "Paulo Mendes": "op-5" };
+export const seedOperatorColors: OperatorColors = { "Operador Exemplo 1": "op-1", "Operador Exemplo 2": "op-2", "Operador Exemplo 3": "op-3", "Operador Exemplo 4": "op-4", "Supervisor Exemplo": "op-5" };
 /** Exemplo: 4 operadores e 1 supervisor (que também pode cobrir turnos). */
-export const SCHEDULE_OPERATORS = ["Bruno Teles", "Camila Reis", "Rafael Costa", "Lívia Prado"];
-export const SCHEDULE_SUPERVISOR = "Paulo Mendes";
+export const SCHEDULE_OPERATORS = ["Operador Exemplo 1", "Operador Exemplo 2", "Operador Exemplo 3", "Operador Exemplo 4"];
+export const SCHEDULE_SUPERVISOR = "Supervisor Exemplo";
 const COLOR_NAMES: Record<string, string> = { "op-1": "Azul", "op-2": "Laranja", "op-3": "Verde", "op-4": "Roxo", "op-5": "Vermelho", "op-6": "Ciano", "op-7": "Amarelo", "op-8": "Rosa" };
 const colorVar = (c?: string) => (c ? `var(--${c})` : "var(--muted-foreground)");
 function OpChip({ name, color }: { name: string; color?: string | undefined }) {
@@ -100,7 +100,7 @@ function OpChip({ name, color }: { name: string; color?: string | undefined }) {
 
 export type Paridade = "impar" | "par";
 export type ScheduleTemplate = { count: number; slots: Record<Paridade, Record<Turno, string[]>> };
-export const seedTemplate: ScheduleTemplate = { count: 1, slots: { impar: { Diurno: ["Bruno Teles"], Noturno: ["Camila Reis"] }, par: { Diurno: ["Rafael Costa"], Noturno: ["Lívia Prado"] } } };
+export const seedTemplate: ScheduleTemplate = { count: 1, slots: { impar: { Diurno: ["Operador Exemplo 1"], Noturno: ["Operador Exemplo 2"] }, par: { Diurno: ["Operador Exemplo 3"], Noturno: ["Operador Exemplo 4"] } } };
 
 const iso = (y: number, m: number, d: number) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
