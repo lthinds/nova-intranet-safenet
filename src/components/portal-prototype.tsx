@@ -94,9 +94,10 @@ import { RolesView } from "@/components/roles-view";
 import { BirthdaysView, GlobalSearch, type SearchHit } from "@/components/directory-views";
 import { canSeeHrData, identityFromLogin, readStats, recordUse, toggleFavorite, topUsed, type DirectoryEntry } from "@/lib/directory";
 import { deleteRole, hasPermission, seedRoles, supervisedAreas, type Role } from "@/lib/roles";
+import { RecruitmentView } from "@/components/recruitment-view";
 import { JobsBox, ManualsView, NewsBox, ScheduleView, seedJobs, seedManuals, seedSchedule, type Job, type Manual, type Shift } from "@/components/ops-views";
 
-type View = "inicio" | "avisos" | "treinamentos" | "aplicacoes" | "colaboradores" | "acessos" | "gestao" | "cargos" | "aniversarios" | "manuais" | "escala";
+type View = "inicio" | "avisos" | "treinamentos" | "aplicacoes" | "colaboradores" | "acessos" | "gestao" | "cargos" | "aniversarios" | "manuais" | "escala" | "vagas";
 type Integration = "SSO integrado" | "Link externo";
 
 type AppItem = {
@@ -154,6 +155,7 @@ const navItems: Array<{ id: View; label: string; icon: ComponentType<{ className
   { id: "treinamentos", label: "Treinamentos", icon: GraduationCap },
   { id: "manuais", label: "Manuais e guias", icon: BookOpen },
   { id: "escala", label: "Escala do monitoramento", icon: CalendarClock },
+  { id: "vagas", label: "Vagas e Indicações", icon: BriefcaseBusiness },
   { id: "aniversarios", label: "Aniversários e tempo de casa", icon: Cake },
   { id: "colaboradores", label: "Gestão de colaboradores", icon: Users },
   { id: "acessos", label: "Acessos", icon: ShieldEllipsis },
@@ -167,7 +169,7 @@ type ModalState = null | { kind: "add" } | { kind: "approve" | "block" | "unbloc
 export function viewsAllowed(p: { canManageRoles: boolean; canManagePeople: boolean; canManageApps: boolean; canSeeHr?: boolean; canSeeSchedule?: boolean }): View[] {
   const v: View[] = ["inicio", "avisos", "aplicacoes", "treinamentos", "manuais"];
   if (p.canSeeSchedule) v.push("escala");
-  if (p.canSeeHr) v.push("aniversarios");
+  if (p.canSeeHr) v.push("vagas", "aniversarios");
   // RH/DP manage collaborator data (not permissions), so they also see the people list.
   if (p.canManagePeople || p.canSeeHr) v.push("colaboradores");
   if (p.canManagePeople) v.push("acessos");
@@ -320,6 +322,7 @@ export function PortalPrototype() {
     colaboradores: { title: "Colaboradores", description: "Aprove cadastros e acompanhe a situação das contas." },
     acessos: { title: "Gestão de acessos", description: "Defina quais ferramentas cada colaborador visualiza no portal." },
     cargos: { title: "Cargos e permissões", description: "Crie cargos e defina o que cada um vê e administra no portal." },
+    vagas: { title: "Vagas e Indicações", description: "Publique vagas e acompanhe currículos e indicações." },
     aniversarios: { title: "Aniversários e tempo de casa", description: "Datas comemorativas da equipe (exclusivo RH e DP)." },
     gestao: { title: "Gestão de aplicações", description: "Cadastre ferramentas e escolha como cada acesso será realizado." },
   };
@@ -380,6 +383,7 @@ export function PortalPrototype() {
           {view === "avisos" && <NoticesView items={announcements} now={now} acknowledged={acknowledged} onCreate={canPublish ? () => setCreateNotice(true) : undefined} onOpen={(item) => { setOpenNotice(item); if (!item.mandatory && !acknowledged.includes(item.id)) setAcknowledged((l) => [...l, item.id]); }} extra={canPublish ? (item) => { const recips = people.filter((p) => p.status === "Ativo" && isRecipient(item, p)); const st = readStats(recips, acksByEmail, item.id); return <Badge variant="outline" className="border-info/20 bg-info-soft text-info" title={`${st.pending} pendentes`}><Eye className="mr-1 size-3" />{st.read}/{st.total} leram</Badge>; } : undefined} />}
           {view === "treinamentos" && <TrainingsView courses={courses} now={now} completed={doneCourses} onToggleDone={toggleDone} canCreate={currentUser.roles.includes("Supervisor") || currentUser.roles.includes("Coordenação")} onCreate={(c) => { setCourses((l) => [c, ...l]); showNotice("Treinamento publicado."); }} />}
           {view === "aplicacoes" && <ApplicationsView favorites={favorites} onToggleFav={toggleFav} apps={filteredApps} query={query} setQuery={setQuery} category={category} setCategory={setCategory} onSelect={selectApp} />}
+          {view === "vagas" && canSeeHr && <RecruitmentView jobs={jobs} setJobs={setJobs} showNotice={showNotice} />}
           {view === "aniversarios" && canSeeHr && <BirthdaysView people={people} now={now} />}
           {view === "colaboradores" && (canManagePeople || canSeeHr) && <PeopleView people={people} setPeople={setPeople} roleNames={roles.map((r) => r.name)} setModal={setModal} showNotice={showNotice} canManageAccess={canManagePeople} canEditData={canSeeHr || canManagePeople} />}
           {view === "cargos" && canManageRoles && <RolesView roles={roles} people={people} apps={appList.map((a) => ({ id: a.id, name: a.name }))} onSave={(role, prev) => { setRoles((list) => list.some((r) => r.id === role.id) ? list.map((r) => (r.id === role.id ? role : r)) : [...list, role]); if (prev && prev !== role.name) setPeople((list) => list.map((p) => ({ ...p, roles: p.roles.map((n) => (n === prev ? role.name : n)) }))); showNotice(prev ? `Cargo ${role.name} atualizado.` : `Cargo ${role.name} criado.`); }} onDelete={(id) => { const name = roles.find((r) => r.id === id)?.name; const res = deleteRole(id, roles, people); setRoles(res.roles); setPeople(res.people); showNotice(`Cargo ${name} excluído.`); }} />}

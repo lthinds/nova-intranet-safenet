@@ -194,11 +194,20 @@ function ShiftDialog({ shift, colors, onColor, onClose, onSave }: { shift: Shift
 
 /* ---------------- Vagas abertas ---------------- */
 
-export type JobApplication = { kind: "interesse" | "indicacao"; name: string; email: string; phone: string; info: string; fileName: string; sentBy: string };
-export type Job = { id: string; title: string; area: string; until: string; applications?: JobApplication[] };
+export type ApplicationStatus = "Novo" | "Em triagem" | "Entrevista" | "Aprovado" | "Banco de talentos" | "Descartado";
+export const APPLICATION_STATUSES: ApplicationStatus[] = ["Novo", "Em triagem", "Entrevista", "Aprovado", "Banco de talentos", "Descartado"];
+export type JobApplication = { id?: string; kind: "interesse" | "indicacao" | "externa"; name: string; email: string; phone: string; info: string; fileName: string; sentBy: string; sentAt?: string; status?: ApplicationStatus; notes?: string };
+export type Job = { id: string; title: string; area: string; until: string; description?: string; status?: "aberta" | "encerrada"; applications?: JobApplication[] };
+export const isJobOpen = (j: Job) => (j.status ?? "aberta") === "aberta";
 export const seedJobs: Job[] = [
-  { id: "j1", title: "Exemplo: clique aqui para ver como se candidatar", area: "Toda a empresa", until: "2026-12-31" },
-  { id: "j2", title: "Exemplo: indique alguém para uma vaga", area: "RH", until: "2026-12-31" },
+  { id: "j1", title: "Exemplo: clique aqui para ver como se candidatar", area: "Toda a empresa", until: "2026-12-31", description: "Vaga de exemplo. O RH/DP publica vagas reais em Vagas e Indicações.", applications: [
+    { id: "c1", kind: "interesse", name: "Candidato Exemplo", email: "candidato.exemplo@safenettecnologia.com.br", phone: "(00) 00000-0000", info: "Exemplo de interesse interno. Mude a situação e escreva anotações para testar.", fileName: "curriculo-exemplo.pdf", sentBy: "candidato.exemplo@safenettecnologia.com.br", sentAt: "2026-11-01", status: "Novo" },
+    { id: "c2", kind: "externa", name: "Candidato Externo Exemplo", email: "externo@exemplo.com", phone: "(00) 00000-0000", info: "Exemplo de candidatura enviada pela página pública, sem login.", fileName: "curriculo-externo.pdf", sentBy: "Página pública", sentAt: "2026-11-02", status: "Em triagem" },
+  ] },
+  { id: "j2", title: "Exemplo: indique alguém para uma vaga", area: "RH", until: "2026-12-31", applications: [
+    { id: "c3", kind: "indicacao", name: "Indicado Exemplo", email: "indicado@exemplo.com", phone: "", info: "Exemplo de indicação feita por um colaborador.", fileName: "", sentBy: "operador.exemplo1@safenettecnologia.com.br", sentAt: "2026-11-03", status: "Novo" },
+  ] },
+  { id: "j3", title: "Exemplo: vaga encerrada", area: "Monitoramento", until: "2026-10-01", status: "encerrada", description: "Vagas encerradas somem do mural, mas continuam aqui com os currículos." },
 ];
 
 export const RESUME_MAX_MB = 10;
@@ -212,19 +221,17 @@ export function validateResume(file: { name: string; size: number }) {
 }
 
 export function JobsBox({ jobs, setJobs, canEdit, user, showNotice }: { jobs: Job[]; setJobs: (fn: (l: Job[]) => Job[]) => void; canEdit: boolean; user: { name: string; email: string }; showNotice: (m: string) => void }) {
-  const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState<Job | null>(null);
-  const [title, setTitle] = useState(""); const [area, setArea] = useState(""); const [until, setUntil] = useState("");
   return <section className="rounded-lg border bg-card p-4 shadow-sm">
-    <div className="mb-3 flex items-center justify-between"><h2 className="flex items-center gap-2 text-sm font-bold"><Briefcase className="size-4 text-primary" /> Vagas abertas</h2>{canEdit && <Button size="sm" variant="ghost" onClick={() => setAdding((v) => !v)} aria-label="Nova vaga">{adding ? <X /> : <Plus />}</Button>}</div>
-    {adding && <div className="mb-3 space-y-2 rounded-md border p-3"><Input placeholder="Cargo da vaga" value={title} onChange={(e) => setTitle(e.target.value)} /><Input placeholder="Área" value={area} onChange={(e) => setArea(e.target.value)} /><Input type="date" value={until} onChange={(e) => setUntil(e.target.value)} /><Button size="sm" className="w-full" disabled={!title.trim()} onClick={() => { setJobs((l) => [{ id: `j${Date.now()}`, title: title.trim(), area: area.trim(), until }, ...l]); setTitle(""); setArea(""); setUntil(""); setAdding(false); }}>Publicar vaga</Button></div>}
-    <ul className="space-y-2">{jobs.map((j) => <li key={j.id} className="flex items-start justify-between gap-2 rounded-md border p-3 hover:border-primary">
+    <div className="mb-3 flex items-center justify-between"><h2 className="flex items-center gap-2 text-sm font-bold"><Briefcase className="size-4 text-primary" /> Vagas abertas</h2></div>
+    
+    <ul className="space-y-2">{jobs.filter(isJobOpen).map((j) => <li key={j.id} className="flex items-start justify-between gap-2 rounded-md border p-3 hover:border-primary">
       <button className="min-w-0 flex-1 text-left" onClick={() => setOpen(j)}><strong className="block text-xs">{j.title}</strong><span className="text-[11px] text-muted-foreground">{j.area}{j.until && ` · até ${new Date(j.until + "T12:00").toLocaleDateString("pt-BR")}`}</span>
         <span className="mt-1 block text-[11px] font-semibold text-primary">Tenho interesse / indicar alguém →</span>
         {canEdit && !!j.applications?.length && <Badge variant="outline" className="mt-1"><Users className="mr-1 size-3" />{j.applications.length} recebido(s)</Badge>}</button>
-      {canEdit && <Button size="icon" variant="ghost" className="size-7" onClick={() => setJobs((l) => l.filter((x) => x.id !== j.id))} aria-label="Remover vaga"><Trash2 className="size-3.5" /></Button>}</li>)}</ul>
-    {!jobs.length && <p className="text-xs text-muted-foreground">Nenhuma vaga aberta no momento.</p>}
-    {open && <ApplyDialog job={open} user={user} onClose={() => setOpen(null)} onSend={(a) => { setJobs((l) => l.map((x) => (x.id === open.id ? { ...x, applications: [...(x.applications ?? []), a] } : x))); setOpen(null); showNotice(a.kind === "interesse" ? "Interesse enviado ao RH." : "Indicação enviada ao RH."); }} />}
+      </li>)}</ul>
+    {!jobs.filter(isJobOpen).length && <p className="text-xs text-muted-foreground">Nenhuma vaga aberta no momento.</p>}
+    {open && <ApplyDialog job={open} user={user} onClose={() => setOpen(null)} onSend={(a) => { setJobs((l) => l.map((x) => (x.id === open.id ? { ...x, applications: [...(x.applications ?? []), { ...a, id: `c${Date.now()}`, sentAt: new Date().toISOString().slice(0, 10), status: "Novo" }] } : x))); setOpen(null); showNotice(a.kind === "interesse" ? "Interesse enviado ao RH." : "Indicação enviada ao RH."); }} />}
   </section>;
 }
 
