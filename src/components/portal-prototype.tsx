@@ -23,7 +23,6 @@ import {
   KeyRound,
   LayoutDashboard,
   Link2,
-  ListFilter,
   LockKeyhole,
   LogOut,
   Megaphone,
@@ -436,7 +435,7 @@ function HomeView({ apps, navigate, onSelect, favorites, onToggleFav, side, usag
 
 function ApplicationsView({ apps: visibleApps, query, setQuery, category, setCategory, onSelect, favorites, onToggleFav }: { favorites: string[]; onToggleFav: (id: string) => void; apps: AppItem[]; query: string; setQuery: (value: string) => void; category: string; setCategory: (value: string) => void; onSelect: (app: AppItem) => void }) {
   return <div className="space-y-5">
-    <div className="grid gap-3 rounded-lg border bg-card p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_220px_auto]">
+    <div className="grid gap-3 rounded-lg border bg-card p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_220px]">
       <label className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar aplicação ou recurso..." className="h-10 pl-9" /><span className="sr-only">Buscar aplicações</span></label>
       <Select value={category} onValueChange={setCategory}><SelectTrigger className="h-10"><SelectValue /></SelectTrigger><SelectContent>{categories.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select>
     </div>
