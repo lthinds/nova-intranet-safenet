@@ -20,3 +20,6 @@
 - [x] Escala do monitoramento mensal 12x36
 - [x] Treinamentos: criação por Supervisor/Coordenação, sugeridos e concluídos
 - [x] Diretório removido; aba renomeada para Gestão de colaboradores
+
+- [x] Exemplos viram tutoriais de uso (avisos, manuais, vagas, perfis de exemplo)
+- [ ] Banco de dados e handoff (schema.sql, api-client, integracao.md/TrueNAS) — adiado pelo usuário
