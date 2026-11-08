@@ -24,10 +24,7 @@ export function RecruitmentView({ jobs, setJobs, showNotice }: { jobs: Job[]; se
   const updateApp = (jobId: string, app: JobApplication) => setJobs((l) => l.map((j) => (j.id === jobId ? { ...j, applications: (j.applications ?? []).map((a) => (a.id === app.id ? app : a)) } : j)));
 
   return <div className="space-y-4">
-    <div>
-      <h1 className="font-display text-2xl font-bold">Vagas e Indicações</h1>
-      <p className="text-sm text-muted-foreground">Só RH e DP veem esta tela. Publique vagas, encerre quando preencher e acompanhe quem se candidatou ou foi indicado.</p>
-    </div>
+    <p className="text-sm text-muted-foreground">Só RH e DP veem esta tela. Publique vagas, encerre quando preencher e acompanhe quem se candidatou ou foi indicado.</p>
     <div className="grid gap-3 sm:grid-cols-3">
       <Stat label="Vagas abertas" value={jobs.filter(isJobOpen).length} />
       <Stat label="Candidaturas recebidas" value={all.length} />
