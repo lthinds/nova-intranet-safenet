@@ -322,6 +322,7 @@ export function PortalPrototype() {
     colaboradores: { title: "Colaboradores", description: "Aprove cadastros e acompanhe a situação das contas." },
     acessos: { title: "Gestão de acessos", description: "Defina quais ferramentas cada colaborador visualiza no portal." },
     cargos: { title: "Cargos e permissões", description: "Crie cargos e defina o que cada um vê e administra no portal." },
+    vagas: { title: "Vagas e Indicações", description: "Publique vagas e acompanhe currículos e indicações." },
     aniversarios: { title: "Aniversários e tempo de casa", description: "Datas comemorativas da equipe (exclusivo RH e DP)." },
     gestao: { title: "Gestão de aplicações", description: "Cadastre ferramentas e escolha como cada acesso será realizado." },
   };
