@@ -14,10 +14,10 @@ import { cn } from "@/lib/utils";
 export type Manual = { id: string; title: string; description: string; area: string; audience: string[]; fileName: string; url: string; updatedAt: string };
 
 export const seedManuals: Manual[] = [
-  { id: "m1", title: "POP — Atendimento a disparo de alarme", description: "Passo a passo do operador ao receber um disparo.", area: "Monitoramento", audience: ["Monitoramento"], fileName: "pop-disparo-alarme.pdf", url: "#", updatedAt: "2026-10-02" },
-  { id: "m2", title: "Checklist de saída de viatura", description: "Inspeção obrigatória antes de cada turno.", area: "Frota", audience: ["Frota", "Monitoramento"], fileName: "checklist-viatura.pdf", url: "#", updatedAt: "2026-09-18" },
-  { id: "m3", title: "Código de conduta", description: "Regras de convivência e ética da Safenet.", area: "RH", audience: ["RH"], fileName: "codigo-de-conduta.pdf", url: "#", updatedAt: "2026-08-01" },
-  { id: "m4", title: "Instalação de câmeras IP", description: "Procedimento técnico de instalação e testes.", area: "Técnico", audience: ["Técnico"], fileName: "instalacao-cameras.pdf", url: "#", updatedAt: "2026-07-22" },
+  { id: "m1", title: "Exemplo — Como publicar um manual da sua área", description: "Supervisores: clique em Novo manual, envie o PDF e escolha quais funções podem ver. Apague este exemplo depois.", area: "Monitoramento", audience: ["Monitoramento"], fileName: "exemplo-monitoramento.pdf", url: "#", updatedAt: "2026-11-01" },
+  { id: "m2", title: "Exemplo — Checklist da frota", description: "Modelo de onde ficam os documentos da Frota. Substitua pelo PDF real.", area: "Frota", audience: ["Frota", "Monitoramento"], fileName: "exemplo-frota.pdf", url: "#", updatedAt: "2026-11-01" },
+  { id: "m3", title: "Exemplo — Documentos do RH", description: "Só quem é do RH vê este exemplo. Cada área vê apenas os próprios manuais.", area: "RH", audience: ["RH"], fileName: "exemplo-rh.pdf", url: "#", updatedAt: "2026-11-01" },
+  { id: "m4", title: "Exemplo — Procedimentos técnicos", description: "Modelo para guias de instalação. Substitua pelo PDF real.", area: "Técnico", audience: ["Técnico"], fileName: "exemplo-tecnico.pdf", url: "#", updatedAt: "2026-11-01" },
 ];
 
 /** Manual segmentado: visível para quem é da área, para as funções extras escolhidas, ou para quem gerencia a área. Nunca para toda a empresa automaticamente. */
@@ -197,8 +197,8 @@ function ShiftDialog({ shift, colors, onColor, onClose, onSave }: { shift: Shift
 export type JobApplication = { kind: "interesse" | "indicacao"; name: string; email: string; phone: string; info: string; fileName: string; sentBy: string };
 export type Job = { id: string; title: string; area: string; until: string; applications?: JobApplication[] };
 export const seedJobs: Job[] = [
-  { id: "j1", title: "Operador de monitoramento (noturno)", area: "Monitoramento", until: "2026-11-15" },
-  { id: "j2", title: "Técnico de instalação CFTV", area: "Técnico", until: "2026-11-30" },
+  { id: "j1", title: "Exemplo: clique aqui para ver como se candidatar", area: "Toda a empresa", until: "2026-12-31" },
+  { id: "j2", title: "Exemplo: indique alguém para uma vaga", area: "RH", until: "2026-12-31" },
 ];
 
 export const RESUME_MAX_MB = 10;
