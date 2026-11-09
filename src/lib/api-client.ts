@@ -21,7 +21,7 @@ import type { DirectoryEntry } from "@/lib/directory";
 import type { Announcement } from "@/components/portal-communications";
 import type { Job, JobApplication, Manual, Shift } from "@/components/ops-views";
 
-export const API_BASE_URL: string = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+export const API_BASE_URL: string = ((import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "").replace(/\/$/, "");
 
 /** true quando o portal está ligado ao servidor real. */
 export const apiEnabled = () => API_BASE_URL.length > 0;
@@ -45,8 +45,8 @@ export async function request<T>(method: Method, path: string, body?: unknown, f
   const res = await fetcher(`${API_BASE_URL}${path}`, {
     method,
     credentials: "include",
-    headers: body && !isForm ? { "Content-Type": "application/json" } : undefined,
-    body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
+    headers: body && !isForm ? { "Content-Type": "application/json" } : {},
+    body: body === undefined ? null : isForm ? (body as FormData) : JSON.stringify(body),
   });
   if (res.status === 401 && typeof window !== "undefined") window.location.reload();
   if (!res.ok) throw new ApiError(res.status, (await res.text().catch(() => "")) || res.statusText);
