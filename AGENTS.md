@@ -13,3 +13,4 @@
 - Authentication is delegated entirely to Keycloak behind an OIDC proxy: the portal reads /oauth2/userinfo, signs out via /oauth2/sign_out, has no login screen, and filters app cards by GS_App_<id> groups (src/lib/keycloak.ts), because production login already exists.
 - /candidatura and /autoavaliacao are public routes without login, because HR uses them externally.
 - Trainings are a manually maintained list in src/data/trainings.ts, because the old spreadsheet feed is frozen.
+- All persistence goes through src/lib/api-client.ts (REST at VITE_API_BASE_URL, returns null when unset so demo data is used), because the backend lives on the company's TrueNAS and is built separately; see docs/GUIA_CLAUDE_E_GESTOR.md.
